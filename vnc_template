@@ -6,65 +6,65 @@
 <mxCell id="1" parent="0"/>
     {% for element in elements %}
         <!-- {{element}} -->
-        {% if element[2]  == "pub" %}
-            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{element[0] + 1 }}" value="Icons" style="" parent="0"/>
-            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{element[0]}}" value="" style="swimlane;fontStyle=0;horizontal=1;collapsible=0;startSize=28;swimlaneLine=0;swimlaneFillColor=none;fillColor=none;rounded=0;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=0;strokeColor=#4376BB;verticalAlign=top;align=left;spacingLeft=5;dashed=0;strokeWidth=1;container=1;" parent="1" vertex="1">
-            <mxGeometry {{element[6]}} as="geometry"/>
+        {% if element.type  == "pub" %}
+            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{element.id + 1 }}" value="Icons" style="" parent="0"/>
+            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{element.id}}" value="" style="swimlane;fontStyle=0;horizontal=1;collapsible=0;startSize=28;swimlaneLine=0;swimlaneFillColor=none;fillColor=none;rounded=0;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=0;strokeColor=#4376BB;verticalAlign=top;align=left;spacingLeft=5;dashed=0;strokeWidth=1;container=1;" parent="1" vertex="1">
+            <mxGeometry {{element.geometry}} as="geometry"/>
             </mxCell>
-            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{element[0] + 2 }}" value="Public&lt;br&gt;Network" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=left;shadow=0;dashed=0;labelBackgroundColor=none;fontSize=12;spacingTop=0;image;image=img/lib/ibm/vpc/PublicTag.svg;part=1;labelPosition=right;verticalLabelPosition=middle;verticalAlign=middle;" parent="FXCXVvDxTQtwc45PbP1s-{{element[0]}}" vertex="1">
+            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{element.id + 2 }}" value="Public&lt;br&gt;Network" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=left;shadow=0;dashed=0;labelBackgroundColor=none;fontSize=12;spacingTop=0;image;image=img/lib/ibm/vpc/PublicTag.svg;part=1;labelPosition=right;verticalLabelPosition=middle;verticalAlign=middle;" parent="FXCXVvDxTQtwc45PbP1s-{{element.id}}" vertex="1">
             <mxGeometry width="30" height="30" as="geometry"/>
             </mxCell>
-        {% elif element[2]  == "vpc" %}
-            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{element[0]}}" value="VPC" style="swimlane;fontStyle=0;horizontal=1;collapsible=0;startSize=28;swimlaneLine=0;swimlaneFillColor=none;fillColor=none;rounded=0;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=12;strokeColor=#417CB9;verticalAlign=top;align=left;spacingLeft=30;spacingTop=1;dashed=0;strokeWidth=1;" parent="FXCXVvDxTQtwc45PbP1s-{{element[1]}}" vertex="1">
-            <mxGeometry {{element[6]}} as="geometry"/>
+        {% elif element.type  == "vpc" %}
+            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{element.id}}" value="VPC" style="swimlane;fontStyle=0;horizontal=1;collapsible=0;startSize=28;swimlaneLine=0;swimlaneFillColor=none;fillColor=none;rounded=0;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=12;strokeColor=#417CB9;verticalAlign=top;align=left;spacingLeft=30;spacingTop=1;dashed=0;strokeWidth=1;" parent="FXCXVvDxTQtwc45PbP1s-{{element.parent.id}}" vertex="1">
+            <mxGeometry {{element.geometry}} as="geometry"/>
             </mxCell>
-            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{element[0] + 1 }}" value="" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/VPCTag.svg;part=1;" parent="FXCXVvDxTQtwc45PbP1s-{{element[0] }}" vertex="1">
+            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{element.id + 1 }}" value="" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/VPCTag.svg;part=1;" parent="FXCXVvDxTQtwc45PbP1s-{{element.id }}" vertex="1">
             <mxGeometry width="30" height="30" as="geometry"/>
             </mxCell>
-        {% elif element[2]  == "zone" %}
-            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{element[0]}}" value="{{ element[3]}}" style="swimlane;fontStyle=0;horizontal=1;collapsible=0;startSize=28;swimlaneLine=0;swimlaneFillColor=none;fillColor=none;rounded=0;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=0;strokeColor=#00882B;verticalAlign=top;align=left;spacingLeft=30;dashed=1;strokeWidth=1;container=1;" parent="FXCXVvDxTQtwc45PbP1s-{{element[1]}}" vertex="1">
-            <mxGeometry {{element[6]}} as="geometry"/>
+        {% elif element.type  == "zone" %}
+            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{element.id}}" value="{{ element.name}}" style="swimlane;fontStyle=0;horizontal=1;collapsible=0;startSize=28;swimlaneLine=0;swimlaneFillColor=none;fillColor=none;rounded=0;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=0;strokeColor=#00882B;verticalAlign=top;align=left;spacingLeft=30;dashed=1;strokeWidth=1;container=1;" parent="FXCXVvDxTQtwc45PbP1s-{{element.parent.id}}" vertex="1">
+            <mxGeometry {{element.geometry}} as="geometry"/>
             </mxCell>
-            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{element[0] + 1}}" value="" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/ZoneTag.svg;part=1;" parent="FXCXVvDxTQtwc45PbP1s-{{element[0]}}" vertex="1">
+            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{element.id + 1}}" value="" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/ZoneTag.svg;part=1;" parent="FXCXVvDxTQtwc45PbP1s-{{element.id}}" vertex="1">
             <mxGeometry width="30" height="30" as="geometry"/>
             </mxCell>
-        {% elif element[2]  == "subnet" %}
-            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element[0]}}" value="{{ element[4]}}: {{ element[3]}}" style="swimlane;fontStyle=0;horizontal=1;collapsible=0;startSize=28;swimlaneLine=0;swimlaneFillColor=none;fillColor=none;rounded=0;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=12;strokeColor=#2A8838;verticalAlign=top;align=left;spacingLeft=30;spacingTop=1;dashed=0;strokeWidth=1;" parent="FXCXVvDxTQtwc45PbP1s-{{element[1]}}" vertex="1">
-            <mxGeometry {{element[6]}} as="geometry"/>
+        {% elif element.type  == "subnet" %}
+            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element.id}}" value="{{ element.IP}}: {{ element.name}}" style="swimlane;fontStyle=0;horizontal=1;collapsible=0;startSize=28;swimlaneLine=0;swimlaneFillColor=none;fillColor=none;rounded=0;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=12;strokeColor=#2A8838;verticalAlign=top;align=left;spacingLeft=30;spacingTop=1;dashed=0;strokeWidth=1;" parent="FXCXVvDxTQtwc45PbP1s-{{element.parent.id}}" vertex="1">
+            <mxGeometry {{element.geometry}} as="geometry"/>
             </mxCell>
-            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element[0] + 1 }}" value="{{ element[5]}}" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/SubnetTag.svg;part=1;" parent="FXCXVvDxTQtwc45PbP1s-{{ element[0]}}" vertex="1">
+            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element.id + 1 }}" value="{{ element.key}}" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/SubnetTag.svg;part=1;" parent="FXCXVvDxTQtwc45PbP1s-{{ element.id}}" vertex="1">
             <mxGeometry width="30" height="40" as="geometry"/>
             </mxCell>
-        {% elif element[2]  == "sg" %}
-            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element[0]}}" value="{{ element[3]}}" style="rounded=0;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=0;strokeColor=#FD0000;fillColor=none;verticalAlign=top;align=center;spacingLeft=5;dashed=1;dashPattern=5 2;labelPosition=center;verticalLabelPosition=middle;strokeWidth=2;" parent="FXCXVvDxTQtwc45PbP1s-{{ element[1]}}" vertex="1">
-            <mxGeometry {{element[6]}} as="geometry"/>
+        {% elif element.type  == "sg" %}
+            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element.id}}" value="{{ element.name}}" style="rounded=0;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=0;strokeColor=#FD0000;fillColor=none;verticalAlign=top;align=center;spacingLeft=5;dashed=1;dashPattern=5 2;labelPosition=center;verticalLabelPosition=middle;strokeWidth=2;" parent="FXCXVvDxTQtwc45PbP1s-{{ element.parent.id}}" vertex="1">
+            <mxGeometry {{element.geometry}} as="geometry"/>
             </mxCell>
-        {% elif element[2]  == "vsi" %}
-            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element[0]}}" value="{{ element[3]}}" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/Instance.svg;" parent="FXCXVvDxTQtwc45PbP1s-{{ element[1]}}" vertex="1">
-            <mxGeometry {{element[6]}} as="geometry"/>
+        {% elif element.type  == "vsi" %}
+            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element.id}}" value="{{ element.name}}" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/Instance.svg;" parent="FXCXVvDxTQtwc45PbP1s-{{ element.parent.id}}" vertex="1">
+            <mxGeometry {{element.geometry}} as="geometry"/>
             </mxCell>
-        {% elif element[2]  == "gateway" %}
-            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element[0]}}" value="{{ element[3]}}" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/PublicGateway.svg;" parent="FXCXVvDxTQtwc45PbP1s-{{ element[1]}}" vertex="1">
-            <mxGeometry {{element[6]}} as="geometry"/>
+        {% elif element.type  == "gateway" %}
+            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element.id}}" value="{{ element.name}}" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/PublicGateway.svg;" parent="FXCXVvDxTQtwc45PbP1s-{{ element.parent.id}}" vertex="1">
+            <mxGeometry {{element.geometry}} as="geometry"/>
             </mxCell>
-        {% elif element[2]  == "floating_point" %}
-            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element[0]}}" value="{{ element[3]}}" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/FloatingIP.svg;flipH=1;" parent="FXCXVvDxTQtwc45PbP1s-{{ element[1]}}" vertex="1">
-            <mxGeometry {{element[6]}} as="geometry"/>
+        {% elif element.type  == "floating_point" %}
+            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element.id}}" value="{{ element.name}}" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/FloatingIP.svg;flipH=1;" parent="FXCXVvDxTQtwc45PbP1s-{{ element.parent.id}}" vertex="1">
+            <mxGeometry {{element.geometry}} as="geometry"/>
             </mxCell>
-        {% elif element[2]  == "internet" %}
-            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element[0]}}" value="{{ element[3]}}" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/Internet.svg;" parent="FXCXVvDxTQtwc45PbP1s-{{ element[1]}}" vertex="1">
-            <mxGeometry {{element[6]}} as="geometry"/>
+        {% elif element.type  == "internet" %}
+            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element.id}}" value="{{ element.name}}" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/Internet.svg;" parent="FXCXVvDxTQtwc45PbP1s-{{ element.parent.id}}" vertex="1">
+            <mxGeometry {{element.geometry}} as="geometry"/>
             </mxCell>
-        {% elif element[2]  == "user" %}
-            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element[0]}}" value="{{ element[3]}}" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/users/user.svg;" parent="FXCXVvDxTQtwc45PbP1s-{{ element[1]}}" vertex="1">
-            <mxGeometry {{element[6]}} as="geometry"/>
+        {% elif element.type  == "user" %}
+            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element.id}}" value="{{ element.name}}" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/users/user.svg;" parent="FXCXVvDxTQtwc45PbP1s-{{ element.parent.id}}" vertex="1">
+            <mxGeometry {{element.geometry}} as="geometry"/>
             </mxCell>
-        {% elif element[2]  == "undiredge" %}
-            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element[0]}}" value="{{ element[5]}}" style="endArrow=classic;startArrow=classic;" edge="1" parent="1" source="FXCXVvDxTQtwc45PbP1s-{{ element[3]}}" target="FXCXVvDxTQtwc45PbP1s-{{ element[4]}}">
+        {% elif element.type  == "undiredge" %}
+            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element.id}}" value="{{ element.label}}" style="endArrow=classic;startArrow=classic;" edge="1" parent="1" source="FXCXVvDxTQtwc45PbP1s-{{ element.src.id}}" target="FXCXVvDxTQtwc45PbP1s-{{ element.dst.id}}">
             <mxGeometry relative="1" as="geometry"/>
             </mxCell>
-        {% elif element[2]  == "diredge" %}
-            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element[0]}}" value="{{ element[5]}}" style="endArrow=classic;" edge="1" parent="1" source="FXCXVvDxTQtwc45PbP1s-{{ element[3]}}" target="FXCXVvDxTQtwc45PbP1s-{{ element[4]}}">
+        {% elif element.type  == "diredge" %}
+            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element.id}}" value="{{ element.label}}" style="endArrow=classic;" edge="1" parent="1" source="FXCXVvDxTQtwc45PbP1s-{{ element.src.id}}" target="FXCXVvDxTQtwc45PbP1s-{{ element.dst.id}}">
             <mxGeometry relative="1" as="geometry"/>
             </mxCell>
 

@@ -9,16 +9,14 @@ class Network:
     vpc: VPC = None
     elements: list = field(default_factory=list)
     edges: list = field(default_factory=list)
-    def get_jinja_info(self):
-        return ['pub','','','']
+    type: str = 'pub'
     def get_elements(self):
         return self.elements + self.edges + [self.vpc]
 
 @dataclass
 class VPC:
     zones: list = field(default_factory=list)
-    def get_jinja_info(self):
-        return ['vpc','','','']
+    type: str = 'vpc'
     def get_elements(self):
         return self.zones
 
@@ -28,8 +26,7 @@ class Zone:
     subnets: list = field(default_factory=list)
     elements: list = field(default_factory=list)
     securityGroups: list = field(default_factory=list)
-    def get_jinja_info(self):
-        return ['zone',self.name,'','']
+    type: str = 'zone'
     def get_elements(self):
         return self.subnets + self.elements + self.securityGroups
 
@@ -39,8 +36,7 @@ class Subnet:
     IP: str
     Key: str
     elements: list = field(default_factory=list)
-    def get_jinja_info(self):
-        return ['subnet',self.name,self.IP, self.Key]
+    type: str = 'subnet'
     def get_elements(self):
         return self.elements
 
@@ -48,8 +44,7 @@ class Subnet:
 class SecurityGroup:
     name: str
     elements: list = field(default_factory=list)
-    def get_jinja_info(self):
-        return ['sg',self.name,'','']
+    type: str = 'sg'
     def get_elements(self):
         return []
 
@@ -57,8 +52,6 @@ class SecurityGroup:
 class Element:
     name: str
     type: str
-    def get_jinja_info(self):
-        return [self.type,self.name,'','']
     def get_elements(self):
         return []
 
@@ -66,11 +59,9 @@ class Element:
 class Edge:
     src: object
     dst: object
-    dir: str
+    type: str
     label: str
     geometry: str = ''
-    def get_jinja_info(self):
-        return [self.dir, self.src.id, self.dst.id, self.label]
     def get_elements(self):
         return []
 
@@ -194,10 +185,7 @@ def set_ids(me):
 
 
 def get_jinja_info(me):
-    my_info = me.get_jinja_info()
-    my_info = [me.id, me.parent_id] + my_info + [me.geometry]
-    children_info = list(itertools.chain(*[get_jinja_info(child) for child in me.get_elements()]))
-    return [my_info] + children_info
+    return [me] + list(itertools.chain(*[get_jinja_info(child) for child in me.get_elements()]))
 
 if __name__ == "__main__":
 
