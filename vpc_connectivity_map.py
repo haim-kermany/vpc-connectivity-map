@@ -145,6 +145,47 @@ def build_graph():
     return network
 
 ##############################################################################################
+@dataclass
+class Row:
+    positions: Positions
+    elements: list = field(default_factory=list)
+
+@dataclass
+class Col:
+    positions: Positions
+    elements: list = field(default_factory=list)
+
+@dataclass
+class Positions:
+    rows: list = field(default_factory=list)
+    cols: list = field(default_factory=list)
+
+
+def set_positions(network):
+    positions = Positions()
+
+    elements_lists = [[el] for zone in network.vpc.zones for subnet in zone.subnets for el in subnet.elements if not el.securityGroup]
+    elements_lists += [[el] for zone in network.vpc.zones for el in zone.elements if not el.securityGroup]
+    elements_lists += [sg.elements for sg in network.vpc.securityGroups]
+    for elements_list in elements_lists:
+        row = Row(positions)
+        for el in elements_list:
+            row.elements.append(el)
+            el.row = row
+        positions.rows.append(row)
+
+    elements_lists = [subnet.elements for zone in network.vpc.zones for subnet in zone.subnets]
+    elements_lists += [zone.elements for zone in network.vpc.zones]
+    for elements_list in elements_lists:
+        col = Col(positions)
+        for el in elements_list:
+            col.elements.append(el)
+            el.col = col
+        positions.cols.append(col)
+    return positions
+
+###################################################################################################
+
 
 NETWORK_BORDER_DISTANCE = 40
 VPC_BORDER_DISTANCE = 40
@@ -157,46 +198,31 @@ SUBNET_ELEMENTS_SPACE_H = 6*40
 SUBNET_ELEMENTS_SPACE_W = 8*40
 ICON_SIZE = 60
 
-@dataclass
-class Layer:
-    elements: list = field(default_factory=list)
 
 
-def set_positions(network):
-    for zone in network.vpc.zones:
-        for subnet in zone.subnets:
-            subnet.el_to_layers = {
-                el: el.attached_to.securityGroup if el.attached_to else el.securityGroup if el.securityGroup else el for
-                el in subnet.elements}
-            layers = set(subnet.el_to_layers.values())
-            subnet.layers = {layer: [el for el in subnet.el_to_layers.keys() if subnet.el_to_layers[el] == layer] for
-                             layer in layers}
-    all_layers = list(set(itertools.chain(*[subnet.layers.keys() for zone in network.vpc.zones for subnet in zone.subnets])))
-    return all_layers
-
-
-def set_subnet_geometry(subnet, all_zone_layers):
+def set_subnet_geometry(subnet, positions):
     for element in subnet.elements:
-        element.y = (SUBNET_ELEMENTS_SPACE_H - ICON_SIZE) / 2 + SUBNET_ELEMENTS_SPACE_H * all_zone_layers.index(subnet.el_to_layers[element])
-    for layer, elements in subnet.layers.items():
-        elements_space = (SUBNET_ELEMENTS_SPACE_W - 2*SECURITY_GROUP_BORDER_DISTANCE - len(elements)*ICON_SIZE)/(len(elements) + 1)
-        for el in elements:
-            el.x = SECURITY_GROUP_BORDER_DISTANCE + elements_space + elements.index(el)*(elements_space + ICON_SIZE)
-    for element in subnet.elements:
+        element_row_index = positions.rows.index(element.row)
+        element.y = (SUBNET_ELEMENTS_SPACE_H - ICON_SIZE) / 2 + SUBNET_ELEMENTS_SPACE_H * element_row_index
+        subnet_elements_in_row = [el for el in element.row.elements if el.subnet == element.subnet]
+        elements_space = (SUBNET_ELEMENTS_SPACE_W - 2*SECURITY_GROUP_BORDER_DISTANCE - len(subnet_elements_in_row)*ICON_SIZE)/(len(subnet_elements_in_row) + 1)
+        element.x = SECURITY_GROUP_BORDER_DISTANCE + elements_space + subnet_elements_in_row.index(element)*(elements_space + ICON_SIZE)
         element.h = ICON_SIZE
         element.w = ICON_SIZE
 
 
-def set_zone_geometry(zone, all_zone_layers):
+def set_zone_geometry(zone, positions):
     for subnet in zone.subnets:
-        subnet.x = ZONE_ELEMENTS_SPACE + (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE) * zone.subnets.index(subnet)
+        subnet_row_index = positions.rows.index(subnet.elements[0].row)
+        subnet.x = ZONE_ELEMENTS_SPACE + (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE) * (subnet_row_index - 1)
         subnet.y = SUBNET_BORDER_DISTANCE
-        subnet.h = SUBNET_ELEMENTS_SPACE_H * len(all_zone_layers)
+        subnet.h = SUBNET_ELEMENTS_SPACE_H * len(positions.rows)
         subnet.w = SUBNET_ELEMENTS_SPACE_W
-        set_subnet_geometry(subnet, all_zone_layers)
+        set_subnet_geometry(subnet, positions)
     for element in zone.elements:
+        element_row_index = positions.rows.index(element.row)
         element.x = (ZONE_ELEMENTS_SPACE - ICON_SIZE)/2
-        element.y = (ZONE_ELEMENTS_SPACE - ICON_SIZE)/2 + (ZONE_ELEMENTS_SPACE - ICON_SIZE)/2 * zone.elements.index(element)
+        element.y = SUBNET_BORDER_DISTANCE + (SUBNET_ELEMENTS_SPACE_H - ICON_SIZE) / 2 + SUBNET_ELEMENTS_SPACE_H * element_row_index
         element.h = ICON_SIZE
         element.w = ICON_SIZE
     zone.h = max(subnet.h for subnet in zone.subnets) + 2 * SUBNET_BORDER_DISTANCE
@@ -204,13 +230,14 @@ def set_zone_geometry(zone, all_zone_layers):
 
 
 def layouting(network):
-    all_layers = set_positions(network)
+    positions = set_positions(network)
     for zone in network.vpc.zones:
         zone.x = ZONE_BORDER_DISTANCE
         zone.y = ZONE_BORDER_DISTANCE
-        set_zone_geometry(zone, all_layers)
+        set_zone_geometry(zone, positions)
     for sg in network.vpc.securityGroups:
-        sg.y = ZONE_BORDER_DISTANCE + SUBNET_BORDER_DISTANCE + SECURITY_GROUP_BORDER_DISTANCE + all_layers.index(sg)*SUBNET_ELEMENTS_SPACE_H
+        sg_row_index = positions.rows.index(sg.elements[0].row)
+        sg.y = ZONE_BORDER_DISTANCE + SUBNET_BORDER_DISTANCE + SECURITY_GROUP_BORDER_DISTANCE + sg_row_index*SUBNET_ELEMENTS_SPACE_H
         sg.x = ZONE_BORDER_DISTANCE + SECURITY_GROUP_BORDER_DISTANCE
         sg.h = SUBNET_ELEMENTS_SPACE_H - SECURITY_GROUP_BORDER_DISTANCE*2
         sg.w = sum(zone.w for zone in network.vpc.zones) + ZONE_BORDER_DISTANCE*(len(network.vpc.zones)- 1 ) - SECURITY_GROUP_BORDER_DISTANCE * 2 - SUBNET_BORDER_DISTANCE
