@@ -47,13 +47,19 @@ class SecurityGroup:
     type: str = 'sg'
     def get_elements(self):
         return []
+    def __hash__(self):
+        return self.name.__hash__()
 
 @dataclass
 class Element:
     name: str
     type: str
+    securityGroup: SecurityGroup = None
+    attached_to: Element = None
     def get_elements(self):
         return []
+    def __hash__(self):
+        return self.name.__hash__()
 
 @dataclass
 class Edge:
@@ -66,20 +72,6 @@ class Edge:
         return []
 
 
-connections = [
-    ('vsi3a-ky[10.240.30.5], vsi1-ky[10.240.10.4],  All Connections'),
-    ('vsi3b-ky[10.240.30.4], vsi1-ky[10.240.10.4],  All Connections'),
-    ('vsi3b-ky[10.240.30.4], vsi2-ky[10.240.20.4],  TCP 1-65535'),
-    ('vsi3b-ky[10.240.30.4], vsi3a-ky[10.240.30.5],  All Connections'),
-    ('vsi2-ky[10.240.20.4], vsi1-ky[10.240.10.4],  All Connections'),
-    ('vsi2-ky[10.240.20.4], vsi3b-ky[10.240.30.4],  TCP 1-65535'),
-    ('vsi1-ky[10.240.10.4], 161.26.0.0/16, UDP 1-65535'),
-    ('vsi1-ky[10.240.10.4], 142.0.0.0/8, ICMP 0-255'),
-    ('vsi1-ky[10.240.10.4], 143.0.0.0/8, ICMP 0-255'),
-    ('vsi2-ky[10.240.20.4], 142.0.0.0/8, ICMP 0-255'),
-    ('147.235.219.206/32, vsi2-ky[10.240.20.4],  TCP 22')
-]
-
 def build_graph():
     network = Network()
     vpc = VPC()
@@ -90,13 +82,13 @@ def build_graph():
     securityGroup1 = SecurityGroup('sg1')
     securityGroup2 = SecurityGroup('sg2')
     securityGroup3 = SecurityGroup('sg3')
-    vsi1 = Element('vsi1', 'vsi')
-    vsi2 = Element('vsi2', 'vsi')
-    vsi3a = Element('vsi3a', 'vsi')
-    vsi3b = Element('vsi3b', 'vsi')
+    vsi1 = Element('vsi1', 'vsi', securityGroup1)
+    vsi2 = Element('vsi2', 'vsi', securityGroup2)
+    vsi3a = Element('vsi3a', 'vsi', securityGroup2)
+    vsi3b = Element('vsi3b', 'vsi', securityGroup3)
     public_gw = Element('public_gw', 'gateway')
-    db_gw = Element('db_endpoint_gw', 'gateway')
-    floating_point_ip = Element('52.118.188.231', 'floating_point')
+    db_gw = Element('db_endpoint_gw', 'gateway', securityGroup3)
+    floating_point_ip = Element('52.118.188.231', 'floating_point', securityGroup2, vsi2)
     internet1 = Element('142.0.0.0/8', 'internet')
     internet2 = Element('143.0.0.0/8', 'internet')
     user = Element('147.235.219.206/32', 'user')
@@ -149,29 +141,84 @@ def build_graph():
     network.edges.append(Edge(db_gw, vsi1, 'diredge',''))
     network.edges.append(Edge(vsi3a, vsi1, 'diredge',''))
 
-    network.geometry = 'x="80" y="80" width="1440" height="1000"'
-    vpc.geometry = 'x="160" y="40" width="1200" height="920" '
-    us_south.geometry = 'x="40" y="40" width="1000" height="840" '
-    subnet1.geometry = 'x="160" y="40" width="320" height="320" '
-    subnet2.geometry = 'x="160" y="400" width="320" height="320" '
-    subnet3.geometry = 'x="520" y="40" width="320" height="680" '
-    securityGroup1.geometry = 'x="240" y="120" width="160" height="160"'
-    securityGroup2.geometry = 'x="200" y="480" width="560" height="160"'
-    securityGroup3.geometry = 'x="560" y="120" width="240" height="160"'
-    vsi1.geometry = 'x="130" y="130" width="60" height="60"'
-    vsi2.geometry = 'x="130" y="130" width="60" height="60"'
-    vsi3a.geometry = 'x="70" y="130" width="60" height="60"'
-    vsi3b.geometry = 'x="130" y="490" width="60" height="60"'
-    public_gw.geometry = 'x="50" y="240" width="60" height="60"'
-    db_gw.geometry = 'x="190" y="130" width="60" height="60"'
-    floating_point_ip.geometry = 'x="70" y="130" width="60" height="60"'
-    internet1.geometry = 'x="50" y="240" width="60" height="60"'
-    internet2.geometry = 'x="50" y="360" width="60" height="60"'
-    user.geometry = 'x="50" y="480" width="60" height="60"'
-
-
     return network
 
+##############################################################################################
+
+NETWORK_BORDER_DISTANCE = 40
+VPC_BORDER_DISTANCE = 40
+ZONE_BORDER_DISTANCE = 40
+SUBNET_BORDER_DISTANCE = 40
+SECURITY_GROUP_BORDER_DISTANCE = 40
+NETWORK_ELEMENTS_SPACE = 4*40
+ZONE_ELEMENTS_SPACE = 4*40
+SUBNET_ELEMENTS_SPACE_H = 6*40
+SUBNET_ELEMENTS_SPACE_W = 8*40
+ICON_SIZE = 60
+
+
+def process_subnet(subnet):
+    subnet.el_to_layers = {el: el.attached_to.securityGroup if el.attached_to else el.securityGroup if el.securityGroup else el for el in subnet.elements}
+    layers = set(subnet.el_to_layers.values())
+    subnet.layers = {layer: [el for el in subnet.el_to_layers.keys() if subnet.el_to_layers[el] == layer] for layer in layers}
+    subnet.n_layers = len(layers)
+
+def set_subnet_geometry(subnet, all_zone_layers):
+    for element in subnet.elements:
+        element.y = (SUBNET_ELEMENTS_SPACE_H - ICON_SIZE) / 2 + SUBNET_ELEMENTS_SPACE_H * all_zone_layers.index(subnet.el_to_layers[element])
+    for layer, elements in subnet.layers.items():
+        elements_space = (SUBNET_ELEMENTS_SPACE_W - 2*SECURITY_GROUP_BORDER_DISTANCE - len(elements)*ICON_SIZE)/(len(elements) + 1)
+        for el in elements:
+            el.x = SECURITY_GROUP_BORDER_DISTANCE + elements_space + elements.index(el)*(elements_space + ICON_SIZE)
+    for element in subnet.elements:
+        element.h = ICON_SIZE
+        element.w = ICON_SIZE
+
+
+def set_zone_geometry(zone):
+    for subnet in zone.subnets:
+        process_subnet(subnet)
+    all_zone_layers = list(set(itertools.chain(*[subnet.layers.keys() for subnet in zone.subnets])))
+    for subnet in zone.subnets:
+        subnet.x = ZONE_ELEMENTS_SPACE + (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE) * zone.subnets.index(subnet)
+        subnet.y = SUBNET_BORDER_DISTANCE
+        subnet.h = SUBNET_ELEMENTS_SPACE_H * len(all_zone_layers)
+        subnet.w = SUBNET_ELEMENTS_SPACE_W
+        set_subnet_geometry(subnet, all_zone_layers)
+    for element in zone.elements:
+        element.x = (ZONE_ELEMENTS_SPACE - ICON_SIZE)/2
+        element.y = (ZONE_ELEMENTS_SPACE - ICON_SIZE)/2 + (ZONE_ELEMENTS_SPACE - ICON_SIZE)/2 * zone.elements.index(element)
+        element.h = ICON_SIZE
+        element.w = ICON_SIZE
+    zone.h = max(subnet.h for subnet in zone.subnets) + 2 * SUBNET_BORDER_DISTANCE
+    zone.w = ZONE_ELEMENTS_SPACE + (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE) * len(zone.subnets)
+
+    for sg in zone.securityGroups:
+        sg.y = SUBNET_BORDER_DISTANCE + SECURITY_GROUP_BORDER_DISTANCE + all_zone_layers.index(sg)*SUBNET_ELEMENTS_SPACE_H
+        sg.x = SECURITY_GROUP_BORDER_DISTANCE + ZONE_ELEMENTS_SPACE
+        sg.h = SUBNET_ELEMENTS_SPACE_H - SECURITY_GROUP_BORDER_DISTANCE*2
+        sg.w = SUBNET_ELEMENTS_SPACE_W * len(zone.subnets) + SUBNET_BORDER_DISTANCE * (len(zone.subnets) - 1) - 2 * SECURITY_GROUP_BORDER_DISTANCE
+
+def layouting(network):
+    for zone in network.vpc.zones:
+        zone.x = ZONE_BORDER_DISTANCE
+        zone.y = ZONE_BORDER_DISTANCE
+        set_zone_geometry(zone)
+    for element in network.elements:
+        element.x = (NETWORK_ELEMENTS_SPACE - ICON_SIZE)/2
+        element.y = (NETWORK_ELEMENTS_SPACE - ICON_SIZE)/2 + NETWORK_ELEMENTS_SPACE * network.elements.index(element)
+        element.h = ICON_SIZE
+        element.w = ICON_SIZE
+    network.vpc.x = NETWORK_ELEMENTS_SPACE
+    network.vpc.y = VPC_BORDER_DISTANCE
+    network.vpc.w = sum(zone.w for zone in network.vpc.zones) + ZONE_BORDER_DISTANCE*(len(network.vpc.zones) + 1)
+    network.vpc.h = max(zone.h for zone in network.vpc.zones) + ZONE_BORDER_DISTANCE*2
+    network.x = NETWORK_BORDER_DISTANCE
+    network.y = NETWORK_BORDER_DISTANCE
+    network.w = network.vpc.w + NETWORK_ELEMENTS_SPACE*2
+    network.h = network.vpc.h + 2*VPC_BORDER_DISTANCE
+
+#################################################################################################################
 
 id_counter = 100
 def set_ids(me):
@@ -185,6 +232,8 @@ def set_ids(me):
 
 
 def get_jinja_info(me):
+    if 'diredge' not in me.type:
+        me.geometry = f'x="{me.x}" y="{me.y}" width="{me.w}" height="{me.h}"'
     return [me] + list(itertools.chain(*[get_jinja_info(child) for child in me.get_elements()]))
 
 if __name__ == "__main__":
@@ -196,6 +245,7 @@ if __name__ == "__main__":
 
     network = build_graph()
     set_ids(network)
+    layouting(network)
     jinja_info = get_jinja_info(network)
     outputText = template.render(elements=jinja_info)
     with open('out.drawio', 'w') as f:
