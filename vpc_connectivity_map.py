@@ -16,19 +16,19 @@ class Network:
 @dataclass
 class VPC:
     zones: list = field(default_factory=list)
+    securityGroups: list = field(default_factory=list)
     type: str = 'vpc'
     def get_elements(self):
-        return self.zones
+        return self.zones + self.securityGroups
 
 @dataclass
 class Zone:
     name: str
     subnets: list = field(default_factory=list)
     elements: list = field(default_factory=list)
-    securityGroups: list = field(default_factory=list)
     type: str = 'zone'
     def get_elements(self):
-        return self.subnets + self.elements + self.securityGroups
+        return self.subnets + self.elements
 
 @dataclass
 class Subnet:
@@ -54,6 +54,7 @@ class SecurityGroup:
 class Element:
     name: str
     type: str
+    subnet: Subnet = None
     securityGroup: SecurityGroup = None
     attached_to: Element = None
     def get_elements(self):
@@ -82,13 +83,13 @@ def build_graph():
     securityGroup1 = SecurityGroup('sg1')
     securityGroup2 = SecurityGroup('sg2')
     securityGroup3 = SecurityGroup('sg3')
-    vsi1 = Element('vsi1', 'vsi', securityGroup1)
-    vsi2 = Element('vsi2', 'vsi', securityGroup2)
-    vsi3a = Element('vsi3a', 'vsi', securityGroup2)
-    vsi3b = Element('vsi3b', 'vsi', securityGroup3)
+    vsi1 = Element('vsi1', 'vsi', subnet1, securityGroup1)
+    vsi2 = Element('vsi2', 'vsi', subnet2, securityGroup2)
+    vsi3a = Element('vsi3a', 'vsi', subnet3, securityGroup2)
+    vsi3b = Element('vsi3b', 'vsi', subnet3, securityGroup3)
     public_gw = Element('public_gw', 'gateway')
-    db_gw = Element('db_endpoint_gw', 'gateway', securityGroup3)
-    floating_point_ip = Element('52.118.188.231', 'floating_point', securityGroup2, vsi2)
+    db_gw = Element('db_endpoint_gw', 'gateway', subnet3, securityGroup3)
+    floating_point_ip = Element('52.118.188.231', 'floating_point', subnet2, securityGroup2, vsi2)
     internet1 = Element('142.0.0.0/8', 'internet')
     internet2 = Element('143.0.0.0/8', 'internet')
     user = Element('147.235.219.206/32', 'user')
@@ -106,9 +107,9 @@ def build_graph():
     us_south.subnets.append(subnet2)
     us_south.subnets.append(subnet3)
 
-    us_south.securityGroups.append(securityGroup1)
-    us_south.securityGroups.append(securityGroup2)
-    us_south.securityGroups.append(securityGroup3)
+    vpc.securityGroups.append(securityGroup1)
+    vpc.securityGroups.append(securityGroup2)
+    vpc.securityGroups.append(securityGroup3)
 
     us_south.elements.append(public_gw)
 
@@ -156,12 +157,23 @@ SUBNET_ELEMENTS_SPACE_H = 6*40
 SUBNET_ELEMENTS_SPACE_W = 8*40
 ICON_SIZE = 60
 
+@dataclass
+class Layer:
+    elements: list = field(default_factory=list)
 
-def process_subnet(subnet):
-    subnet.el_to_layers = {el: el.attached_to.securityGroup if el.attached_to else el.securityGroup if el.securityGroup else el for el in subnet.elements}
-    layers = set(subnet.el_to_layers.values())
-    subnet.layers = {layer: [el for el in subnet.el_to_layers.keys() if subnet.el_to_layers[el] == layer] for layer in layers}
-    subnet.n_layers = len(layers)
+
+def set_positions(network):
+    for zone in network.vpc.zones:
+        for subnet in zone.subnets:
+            subnet.el_to_layers = {
+                el: el.attached_to.securityGroup if el.attached_to else el.securityGroup if el.securityGroup else el for
+                el in subnet.elements}
+            layers = set(subnet.el_to_layers.values())
+            subnet.layers = {layer: [el for el in subnet.el_to_layers.keys() if subnet.el_to_layers[el] == layer] for
+                             layer in layers}
+    all_layers = list(set(itertools.chain(*[subnet.layers.keys() for zone in network.vpc.zones for subnet in zone.subnets])))
+    return all_layers
+
 
 def set_subnet_geometry(subnet, all_zone_layers):
     for element in subnet.elements:
@@ -175,10 +187,7 @@ def set_subnet_geometry(subnet, all_zone_layers):
         element.w = ICON_SIZE
 
 
-def set_zone_geometry(zone):
-    for subnet in zone.subnets:
-        process_subnet(subnet)
-    all_zone_layers = list(set(itertools.chain(*[subnet.layers.keys() for subnet in zone.subnets])))
+def set_zone_geometry(zone, all_zone_layers):
     for subnet in zone.subnets:
         subnet.x = ZONE_ELEMENTS_SPACE + (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE) * zone.subnets.index(subnet)
         subnet.y = SUBNET_BORDER_DISTANCE
@@ -193,17 +202,18 @@ def set_zone_geometry(zone):
     zone.h = max(subnet.h for subnet in zone.subnets) + 2 * SUBNET_BORDER_DISTANCE
     zone.w = ZONE_ELEMENTS_SPACE + (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE) * len(zone.subnets)
 
-    for sg in zone.securityGroups:
-        sg.y = SUBNET_BORDER_DISTANCE + SECURITY_GROUP_BORDER_DISTANCE + all_zone_layers.index(sg)*SUBNET_ELEMENTS_SPACE_H
-        sg.x = SECURITY_GROUP_BORDER_DISTANCE + ZONE_ELEMENTS_SPACE
-        sg.h = SUBNET_ELEMENTS_SPACE_H - SECURITY_GROUP_BORDER_DISTANCE*2
-        sg.w = SUBNET_ELEMENTS_SPACE_W * len(zone.subnets) + SUBNET_BORDER_DISTANCE * (len(zone.subnets) - 1) - 2 * SECURITY_GROUP_BORDER_DISTANCE
 
 def layouting(network):
+    all_layers = set_positions(network)
     for zone in network.vpc.zones:
         zone.x = ZONE_BORDER_DISTANCE
         zone.y = ZONE_BORDER_DISTANCE
-        set_zone_geometry(zone)
+        set_zone_geometry(zone, all_layers)
+    for sg in network.vpc.securityGroups:
+        sg.y = ZONE_BORDER_DISTANCE + SUBNET_BORDER_DISTANCE + SECURITY_GROUP_BORDER_DISTANCE + all_layers.index(sg)*SUBNET_ELEMENTS_SPACE_H
+        sg.x = ZONE_BORDER_DISTANCE + SECURITY_GROUP_BORDER_DISTANCE
+        sg.h = SUBNET_ELEMENTS_SPACE_H - SECURITY_GROUP_BORDER_DISTANCE*2
+        sg.w = sum(zone.w for zone in network.vpc.zones) + ZONE_BORDER_DISTANCE*(len(network.vpc.zones)- 1 ) - SECURITY_GROUP_BORDER_DISTANCE * 2 - SUBNET_BORDER_DISTANCE
     for element in network.elements:
         element.x = (NETWORK_ELEMENTS_SPACE - ICON_SIZE)/2
         element.y = (NETWORK_ELEMENTS_SPACE - ICON_SIZE)/2 + NETWORK_ELEMENTS_SPACE * network.elements.index(element)
@@ -215,7 +225,7 @@ def layouting(network):
     network.vpc.h = max(zone.h for zone in network.vpc.zones) + ZONE_BORDER_DISTANCE*2
     network.x = NETWORK_BORDER_DISTANCE
     network.y = NETWORK_BORDER_DISTANCE
-    network.w = network.vpc.w + NETWORK_ELEMENTS_SPACE*2
+    network.w = network.vpc.w + NETWORK_ELEMENTS_SPACE + VPC_BORDER_DISTANCE
     network.h = network.vpc.h + 2*VPC_BORDER_DISTANCE
 
 #################################################################################################################
