@@ -192,8 +192,28 @@ def merge_a_cols(positions):
                     continue
                 for el in col2.elements:
                     el.col = col1
-                    positions.cols.remove(col2)
-                    return True
+                    col1.elements.append(el)
+                positions.cols.remove(col2)
+                return True
+    return False
+
+def merge_a_rows(positions):
+    for row1 in positions.rows:
+        for row2 in positions.rows:
+            if row1 != row2:
+                sns1 = set(el.subnet for el in row1.elements if el.subnet)
+                sns2 = set(el.subnet for el in row2.elements if el.subnet)
+                cols1 = [el.col for el in row1.elements if el.subnet]
+                cols2 = [el.col for el in row2.elements if el.subnet]
+                if [col for col in cols1 if col in cols2]:
+                    continue
+                if sns1 & sns2:
+                    continue
+                for el in row2.elements:
+                    el.row = row1
+                    row1.elements.append(el)
+                positions.rows.remove(row2)
+                return True
     return False
 
 
@@ -219,13 +239,13 @@ def set_positions(network):
             el.col = col
         positions.cols.append(col)
 
-
-
     zone_elements_col_index = positions.get_col_index(network.vpc.zones[0].elements[0].col)
 
     positions.cols[0], positions.cols[zone_elements_col_index] = positions.cols[zone_elements_col_index], positions.cols[0]
 
     while merge_a_cols(positions):
+        pass
+    while merge_a_rows(positions):
         pass
 
     return positions
