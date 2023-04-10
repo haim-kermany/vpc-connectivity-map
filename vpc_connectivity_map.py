@@ -34,11 +34,14 @@ class Zone:
 class Subnet:
     name: str
     IP: str
-    Key: str
+    key: str
+    zone: Zone
     elements: list = field(default_factory=list)
     type: str = 'subnet'
     def get_elements(self):
         return self.elements
+    def __hash__(self):
+        return self.name.__hash__()
 
 @dataclass
 class SecurityGroup:
@@ -77,9 +80,9 @@ def build_graph():
     network = Network()
     vpc = VPC()
     us_south = Zone('us-south-1')
-    subnet1 = Subnet('subnet1', '10.240.10.0/24', 'ACL1')
-    subnet2 = Subnet('subnet2', '10.240.20.0/24', 'ACL2')
-    subnet3 = Subnet('subnet3', '10.240.30.0/24', 'ACL3')
+    subnet1 = Subnet('subnet1', '10.240.10.0/24', 'ACL1', us_south)
+    subnet2 = Subnet('subnet2', '10.240.20.0/24', 'ACL2', us_south)
+    subnet3 = Subnet('subnet3', '10.240.30.0/24', 'ACL3', us_south)
     securityGroup1 = SecurityGroup('sg1')
     securityGroup2 = SecurityGroup('sg2')
     securityGroup3 = SecurityGroup('sg3')
@@ -169,6 +172,31 @@ class Positions:
     def get_n_rows(self):
         return len(self.rows)
 
+    def get_n_cols(self):
+        return len(self.cols)
+
+
+def merge_a_cols(positions):
+    for col1 in positions.cols:
+        for col2 in positions.cols:
+            if col1 != col2:
+                sgs1 = set(el.securityGroup for el in col1.elements if el.securityGroup)
+                sgs2 = set(el.securityGroup for el in col2.elements if el.securityGroup)
+                sns1 = set(el.subnet for el in col1.elements if el.subnet)
+                sns2 = set(el.subnet for el in col2.elements if el.subnet)
+                if not sns1 or not sns2:
+                    continue
+                if sgs1 & sgs2:
+                    continue
+                if sns1 & sns2:
+                    continue
+                for el in col2.elements:
+                    el.col = col1
+                    positions.cols.remove(col2)
+                    return True
+    return False
+
+
 def set_positions(network):
     positions = Positions()
 
@@ -194,8 +222,11 @@ def set_positions(network):
 
 
     zone_elements_col_index = positions.get_col_index(network.vpc.zones[0].elements[0].col)
+
     positions.cols[0], positions.cols[zone_elements_col_index] = positions.cols[zone_elements_col_index], positions.cols[0]
 
+    while merge_a_cols(positions):
+        pass
 
     return positions
 
@@ -216,8 +247,9 @@ ICON_SIZE = 60
 
 
 def set_subnet_geometry(subnet, positions):
+    subnet_row_min_index = min(set(positions.get_row_index(el.row) for el in subnet.elements))
     for element in subnet.elements:
-        element_row_index = positions.get_row_index(element.row)
+        element_row_index = positions.get_row_index(element.row) - subnet_row_min_index
         element.y = (SUBNET_ELEMENTS_SPACE_H - ICON_SIZE) / 2 + SUBNET_ELEMENTS_SPACE_H * element_row_index
         subnet_elements_in_row = [el for el in element.row.elements if el.subnet == element.subnet]
         elements_space = (SUBNET_ELEMENTS_SPACE_W - 2*SECURITY_GROUP_BORDER_DISTANCE - len(subnet_elements_in_row)*ICON_SIZE)/(len(subnet_elements_in_row) + 1)
@@ -229,9 +261,10 @@ def set_subnet_geometry(subnet, positions):
 def set_zone_geometry(zone, positions):
     for subnet in zone.subnets:
         subnet_col_index = positions.get_col_index(subnet.elements[0].col)
+        subnet_row_indexes = set(positions.get_row_index(el.row) for el in subnet.elements)
         subnet.x = ZONE_ELEMENTS_SPACE + (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE) * (subnet_col_index - 1)
-        subnet.y = SUBNET_BORDER_DISTANCE
-        subnet.h = SUBNET_ELEMENTS_SPACE_H * positions.get_n_rows()
+        subnet.y = SUBNET_BORDER_DISTANCE + SUBNET_ELEMENTS_SPACE_H * min(subnet_row_indexes)
+        subnet.h = SUBNET_ELEMENTS_SPACE_H * (max(subnet_row_indexes) - min(subnet_row_indexes) + 1)
         subnet.w = SUBNET_ELEMENTS_SPACE_W
         set_subnet_geometry(subnet, positions)
     for element in zone.elements:
@@ -240,8 +273,9 @@ def set_zone_geometry(zone, positions):
         element.y = SUBNET_BORDER_DISTANCE + (SUBNET_ELEMENTS_SPACE_H - ICON_SIZE) / 2 + SUBNET_ELEMENTS_SPACE_H * element_row_index
         element.h = ICON_SIZE
         element.w = ICON_SIZE
-    zone.h = max(subnet.h for subnet in zone.subnets) + 2 * SUBNET_BORDER_DISTANCE
-    zone.w = ZONE_ELEMENTS_SPACE + (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE) * len(zone.subnets)
+    zone.h = SUBNET_ELEMENTS_SPACE_H * positions.get_n_rows() + 2 * SUBNET_BORDER_DISTANCE
+    n_cols_in_zone = positions.get_n_cols()
+    zone.w = ZONE_ELEMENTS_SPACE + (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE) * (n_cols_in_zone - 1)
 
 
 def layouting(network):
@@ -251,11 +285,12 @@ def layouting(network):
         zone.y = ZONE_BORDER_DISTANCE
         set_zone_geometry(zone, positions)
     for sg in network.vpc.securityGroups:
+        sg_col_indexes = set(positions.get_col_index(el.col) for el in sg.elements)
         sg_row_index = positions.get_row_index(sg.elements[0].row)
         sg.y = ZONE_BORDER_DISTANCE + SUBNET_BORDER_DISTANCE + SECURITY_GROUP_BORDER_DISTANCE + sg_row_index*SUBNET_ELEMENTS_SPACE_H
-        sg.x = ZONE_BORDER_DISTANCE + SECURITY_GROUP_BORDER_DISTANCE
+        sg.x = ZONE_BORDER_DISTANCE + SECURITY_GROUP_BORDER_DISTANCE + ZONE_ELEMENTS_SPACE + (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE)*(min(sg_col_indexes) - 1)
         sg.h = SUBNET_ELEMENTS_SPACE_H - SECURITY_GROUP_BORDER_DISTANCE*2
-        sg.w = sum(zone.w for zone in network.vpc.zones) + ZONE_BORDER_DISTANCE*(len(network.vpc.zones)- 1 ) - SECURITY_GROUP_BORDER_DISTANCE * 2 - SUBNET_BORDER_DISTANCE
+        sg.w = (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE) * (max(sg_col_indexes) - min(sg_col_indexes) + 1) - SUBNET_BORDER_DISTANCE - 2* SECURITY_GROUP_BORDER_DISTANCE
     for element in network.elements:
         element.x = (NETWORK_ELEMENTS_SPACE - ICON_SIZE)/2
         element.y = (NETWORK_ELEMENTS_SPACE - ICON_SIZE)/2 + NETWORK_ELEMENTS_SPACE * network.elements.index(element)
