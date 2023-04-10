@@ -250,7 +250,7 @@ def set_subnet_geometry(subnet, positions):
     subnet_row_min_index = min(set(positions.get_row_index(el.row) for el in subnet.elements))
     for element in subnet.elements:
         element_row_index = positions.get_row_index(element.row) - subnet_row_min_index
-        element.y = (SUBNET_ELEMENTS_SPACE_H - ICON_SIZE) / 2 + SUBNET_ELEMENTS_SPACE_H * element_row_index
+        element.y = (SUBNET_ELEMENTS_SPACE_H - ICON_SIZE) / 2 + (SUBNET_ELEMENTS_SPACE_H + SUBNET_BORDER_DISTANCE) * element_row_index
         subnet_elements_in_row = [el for el in element.row.elements if el.subnet == element.subnet]
         elements_space = (SUBNET_ELEMENTS_SPACE_W - 2*SECURITY_GROUP_BORDER_DISTANCE - len(subnet_elements_in_row)*ICON_SIZE)/(len(subnet_elements_in_row) + 1)
         element.x = SECURITY_GROUP_BORDER_DISTANCE + elements_space + subnet_elements_in_row.index(element)*(elements_space + ICON_SIZE)
@@ -263,8 +263,8 @@ def set_zone_geometry(zone, positions):
         subnet_col_index = positions.get_col_index(subnet.elements[0].col)
         subnet_row_indexes = set(positions.get_row_index(el.row) for el in subnet.elements)
         subnet.x = ZONE_ELEMENTS_SPACE + (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE) * (subnet_col_index - 1)
-        subnet.y = SUBNET_BORDER_DISTANCE + SUBNET_ELEMENTS_SPACE_H * min(subnet_row_indexes)
-        subnet.h = SUBNET_ELEMENTS_SPACE_H * (max(subnet_row_indexes) - min(subnet_row_indexes) + 1)
+        subnet.y = (SUBNET_BORDER_DISTANCE + SUBNET_ELEMENTS_SPACE_H) * min(subnet_row_indexes) + SUBNET_BORDER_DISTANCE
+        subnet.h = (SUBNET_ELEMENTS_SPACE_H  + SUBNET_BORDER_DISTANCE)* (max(subnet_row_indexes) - min(subnet_row_indexes) + 1) - SUBNET_BORDER_DISTANCE
         subnet.w = SUBNET_ELEMENTS_SPACE_W
         set_subnet_geometry(subnet, positions)
     for element in zone.elements:
@@ -273,7 +273,7 @@ def set_zone_geometry(zone, positions):
         element.y = SUBNET_BORDER_DISTANCE + (SUBNET_ELEMENTS_SPACE_H - ICON_SIZE) / 2 + SUBNET_ELEMENTS_SPACE_H * element_row_index
         element.h = ICON_SIZE
         element.w = ICON_SIZE
-    zone.h = SUBNET_ELEMENTS_SPACE_H * positions.get_n_rows() + 2 * SUBNET_BORDER_DISTANCE
+    zone.h = (SUBNET_ELEMENTS_SPACE_H + SUBNET_BORDER_DISTANCE) * positions.get_n_rows() + SUBNET_BORDER_DISTANCE
     n_cols_in_zone = positions.get_n_cols()
     zone.w = ZONE_ELEMENTS_SPACE + (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE) * (n_cols_in_zone - 1)
 
@@ -287,7 +287,7 @@ def layouting(network):
     for sg in network.vpc.securityGroups:
         sg_col_indexes = set(positions.get_col_index(el.col) for el in sg.elements)
         sg_row_index = positions.get_row_index(sg.elements[0].row)
-        sg.y = ZONE_BORDER_DISTANCE + SUBNET_BORDER_DISTANCE + SECURITY_GROUP_BORDER_DISTANCE + sg_row_index*SUBNET_ELEMENTS_SPACE_H
+        sg.y = ZONE_BORDER_DISTANCE+ SUBNET_BORDER_DISTANCE + sg_row_index*(SUBNET_ELEMENTS_SPACE_H + SUBNET_BORDER_DISTANCE) + SECURITY_GROUP_BORDER_DISTANCE
         sg.x = ZONE_BORDER_DISTANCE + SECURITY_GROUP_BORDER_DISTANCE + ZONE_ELEMENTS_SPACE + (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE)*(min(sg_col_indexes) - 1)
         sg.h = SUBNET_ELEMENTS_SPACE_H - SECURITY_GROUP_BORDER_DISTANCE*2
         sg.w = (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE) * (max(sg_col_indexes) - min(sg_col_indexes) + 1) - SUBNET_BORDER_DISTANCE - 2* SECURITY_GROUP_BORDER_DISTANCE
