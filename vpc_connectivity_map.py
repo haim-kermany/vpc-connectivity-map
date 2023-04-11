@@ -257,8 +257,27 @@ def minimize_positions(positions):
         pass
     while merge_a_rows(positions):
         pass
+    while flip_a_clos(positions):
+        pass
 
-    return positions
+def flip_a_clos(positions):
+    for row in positions.rows:
+        row_sgs = set(el.securityGroup for el in row.elements if el.securityGroup)
+        if len(row_sgs) > 1:
+            sg_el = [(sg,  sg.elements) for sg in row_sgs]
+            sg_cols = [(sg, [el.col for el in sg.elements]) for sg in row_sgs]
+            sg_cols_i = [(sg, set(positions.get_col_index(el.col) for el in sg.elements)) for sg in row_sgs]
+            sg_cols = [sorted(list(set(positions.get_col_index(el.col) for el in sg.elements))) for sg in row_sgs]
+            sg_cols.sort(key=lambda sg: sg[0])
+            for sg1, sg2 in zip(sg_cols[0:-1], sg_cols[1:]):
+                if sg1[-1] > sg2[0]:
+                    all_cols_indexes = sg1 + sg2
+                    all_cols_new_indexes = sorted(all_cols_indexes)
+                    old_col = positions.cols.copy()
+                    for o,n in zip(all_cols_indexes,all_cols_new_indexes):
+                        positions.cols[n] = old_col[o]
+                    return True
+    return False
 
 ###################################################################################################
 
@@ -378,10 +397,13 @@ if __name__ == "__main__":
     templateEnv = jinja2.Environment(loader=templateLoader)
     template = templateEnv.get_template(file_name)
 
-    network = build_graph()
-    with open('zone_el_in_sg.json', 'w') as f:
-        f.write(jsonpickle.encode(network, indent=2))
-    inputs_networks = ['from_adi', 'zone_el_in_sg']
+    # network = build_graph()
+    # with open('zone_el_in_sg.json', 'w') as f:
+    #     f.write(jsonpickle.encode(network, indent=2))
+    inputs_networks = [
+        'from_adi',
+        'zone_el_in_sg',
+    ]
     for network_name in inputs_networks:
         with open(network_name + '.json') as f:
             network = jsonpickle.decode(f.read())
