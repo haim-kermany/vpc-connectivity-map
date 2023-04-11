@@ -2,6 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import sys
 import jinja2
+import jsonpickle
 import itertools
 
 @dataclass
@@ -29,6 +30,8 @@ class Zone:
     type: str = 'zone'
     def get_elements(self):
         return self.subnets + self.elements
+    def __hash__(self):
+        return self.id.__hash__()
 
 @dataclass
 class Subnet:
@@ -57,9 +60,8 @@ class SecurityGroup:
 class Element:
     name: str
     type: str
-    subnet: Subnet = None
+    attached_to: str = None
     securityGroup: SecurityGroup = None
-    attached_to: Element = None
     def get_elements(self):
         return []
     def __hash__(self):
@@ -86,13 +88,14 @@ def build_graph():
     securityGroup1 = SecurityGroup('sg1')
     securityGroup2 = SecurityGroup('sg2')
     securityGroup3 = SecurityGroup('sg3')
-    vsi1 = Element('vsi1', 'vsi', subnet1, securityGroup1)
-    vsi2 = Element('vsi2', 'vsi', subnet2, securityGroup2)
-    vsi3a = Element('vsi3a', 'vsi', subnet3, securityGroup2)
-    vsi3b = Element('vsi3b', 'vsi', subnet3, securityGroup3)
+    vsi1 = Element('vsi1', 'vsi')
+    vsi2 = Element('vsi2', 'vsi')
+    vsi3a = Element('vsi3a', 'vsi')
+    vsi3b = Element('vsi3b', 'vsi')
     public_gw = Element('public_gw', 'gateway')
-    db_gw = Element('db_endpoint_gw', 'gateway', subnet3, securityGroup3)
-    floating_point_ip = Element('52.118.188.231', 'floating_point', subnet2, securityGroup2, vsi2)
+    public_gw2 = Element('public_gw2', 'gateway')
+    db_gw = Element('db_endpoint_gw', 'gateway')
+    floating_point_ip = Element('52.118.188.231', 'floating_point', 'vsi2')
     internet1 = Element('142.0.0.0/8', 'internet')
     internet2 = Element('143.0.0.0/8', 'internet')
     user = Element('147.235.219.206/32', 'user')
@@ -115,6 +118,7 @@ def build_graph():
     vpc.securityGroups.append(securityGroup3)
 
     us_south.elements.append(public_gw)
+    us_south.elements.append(public_gw2)
 
     subnet1.elements.append(vsi1)
 
@@ -126,6 +130,7 @@ def build_graph():
     subnet3.elements.append(db_gw)
 
     securityGroup1.elements.append(vsi1)
+    securityGroup3.elements.append(public_gw)
     securityGroup2.elements.append(vsi2)
     securityGroup2.elements.append(vsi3b)
     securityGroup2.elements.append(floating_point_ip)
@@ -133,6 +138,7 @@ def build_graph():
     securityGroup3.elements.append(db_gw)
 
     network.edges.append(Edge(vsi1, public_gw, 'diredge',''))
+    network.edges.append(Edge(vsi1, public_gw2, 'diredge',''))
     network.edges.append(Edge(public_gw, internet1, 'diredge','ICMP'))
     network.edges.append(Edge(public_gw, internet2, 'diredge','ICMP'))
     network.edges.append(Edge(floating_point_ip, internet2, 'diredge','ICMP'))
@@ -182,13 +188,13 @@ def merge_a_cols(positions):
             if col1 != col2:
                 sgs1 = set(el.securityGroup for el in col1.elements if el.securityGroup)
                 sgs2 = set(el.securityGroup for el in col2.elements if el.securityGroup)
-                sns1 = set(el.subnet for el in col1.elements if el.subnet)
-                sns2 = set(el.subnet for el in col2.elements if el.subnet)
-                if not sns1 or not sns2:
+                parents1 = [el.parent for el in col1.elements]
+                parents2 = [el.parent for el in col2.elements]
+                if not isinstance(parents1[0], Subnet) or not isinstance(parents2[0], Subnet):
                     continue
                 if sgs1 & sgs2:
                     continue
-                if sns1 & sns2:
+                if [per for per in parents1 if per in parents2]:
                     continue
                 for el in col2.elements:
                     el.col = col1
@@ -198,16 +204,19 @@ def merge_a_cols(positions):
     return False
 
 def merge_a_rows(positions):
-    for row1 in positions.rows:
-        for row2 in positions.rows:
+    row_to_parameters = [(row, (not sum(set(isinstance(el.parent, Subnet) for el in row.elements)), len(row.elements))) for row in positions.rows]
+    row_to_parameters.sort(key=lambda r: r[1])
+    sorted_rows = [r[0] for r in row_to_parameters]
+    for row1 in sorted_rows:
+        for row2 in sorted_rows:
             if row1 != row2:
-                sns1 = set(el.subnet for el in row1.elements if el.subnet)
-                sns2 = set(el.subnet for el in row2.elements if el.subnet)
-                cols1 = [el.col for el in row1.elements if el.subnet]
-                cols2 = [el.col for el in row2.elements if el.subnet]
+                parents1 = set(el.parent for el in row1.elements)
+                parents2 = set(el.parent for el in row2.elements)
+                cols1 = [el.col for el in row1.elements]
+                cols2 = [el.col for el in row2.elements]
                 if [col for col in cols1 if col in cols2]:
                     continue
-                if sns1 & sns2:
+                if parents1 & parents2:
                     continue
                 for el in row2.elements:
                     el.row = row1
@@ -240,9 +249,10 @@ def set_positions(network):
         positions.cols.append(col)
 
     zone_elements_col_index = positions.get_col_index(network.vpc.zones[0].elements[0].col)
-
     positions.cols[0], positions.cols[zone_elements_col_index] = positions.cols[zone_elements_col_index], positions.cols[0]
+    return positions
 
+def minimize_positions(positions):
     while merge_a_cols(positions):
         pass
     while merge_a_rows(positions):
@@ -271,7 +281,7 @@ def set_subnet_geometry(subnet, positions):
     for element in subnet.elements:
         element_row_index = positions.get_row_index(element.row) - subnet_row_min_index
         element.y = (SUBNET_ELEMENTS_SPACE_H - ICON_SIZE) / 2 + (SUBNET_ELEMENTS_SPACE_H + SUBNET_BORDER_DISTANCE) * element_row_index
-        subnet_elements_in_row = [el for el in element.row.elements if el.subnet == element.subnet]
+        subnet_elements_in_row = [el for el in element.row.elements if el.parent == element.parent]
         elements_space = (SUBNET_ELEMENTS_SPACE_W - 2*SECURITY_GROUP_BORDER_DISTANCE - len(subnet_elements_in_row)*ICON_SIZE)/(len(subnet_elements_in_row) + 1)
         element.x = SECURITY_GROUP_BORDER_DISTANCE + elements_space + subnet_elements_in_row.index(element)*(elements_space + ICON_SIZE)
         element.h = ICON_SIZE
@@ -290,7 +300,7 @@ def set_zone_geometry(zone, positions):
     for element in zone.elements:
         element_row_index = positions.get_row_index(element.row)
         element.x = (ZONE_ELEMENTS_SPACE - ICON_SIZE)/2
-        element.y = SUBNET_BORDER_DISTANCE + (SUBNET_ELEMENTS_SPACE_H - ICON_SIZE) / 2 + SUBNET_ELEMENTS_SPACE_H * element_row_index
+        element.y = SUBNET_BORDER_DISTANCE + (SUBNET_ELEMENTS_SPACE_H - ICON_SIZE) / 2 + (SUBNET_ELEMENTS_SPACE_H + SUBNET_BORDER_DISTANCE) * element_row_index
         element.h = ICON_SIZE
         element.w = ICON_SIZE
     zone.h = (SUBNET_ELEMENTS_SPACE_H + SUBNET_BORDER_DISTANCE) * positions.get_n_rows() + SUBNET_BORDER_DISTANCE
@@ -298,8 +308,7 @@ def set_zone_geometry(zone, positions):
     zone.w = ZONE_ELEMENTS_SPACE + (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE) * (n_cols_in_zone - 1)
 
 
-def layouting(network):
-    positions = set_positions(network)
+def set_geometry(network, positions):
     for zone in network.vpc.zones:
         zone.x = ZONE_BORDER_DISTANCE
         zone.y = ZONE_BORDER_DISTANCE
@@ -307,10 +316,16 @@ def layouting(network):
     for sg in network.vpc.securityGroups:
         sg_col_indexes = set(positions.get_col_index(el.col) for el in sg.elements)
         sg_row_index = positions.get_row_index(sg.elements[0].row)
-        sg.y = ZONE_BORDER_DISTANCE+ SUBNET_BORDER_DISTANCE + sg_row_index*(SUBNET_ELEMENTS_SPACE_H + SUBNET_BORDER_DISTANCE) + SECURITY_GROUP_BORDER_DISTANCE
-        sg.x = ZONE_BORDER_DISTANCE + SECURITY_GROUP_BORDER_DISTANCE + ZONE_ELEMENTS_SPACE + (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE)*(min(sg_col_indexes) - 1)
+        sg.y = ZONE_BORDER_DISTANCE + SUBNET_BORDER_DISTANCE + sg_row_index*(SUBNET_ELEMENTS_SPACE_H + SUBNET_BORDER_DISTANCE) + SECURITY_GROUP_BORDER_DISTANCE
+        sg.x = ZONE_BORDER_DISTANCE + SECURITY_GROUP_BORDER_DISTANCE
+        if min(sg_col_indexes):
+            sg.x += ZONE_ELEMENTS_SPACE + (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE)*(min(sg_col_indexes) - 1)
+
         sg.h = SUBNET_ELEMENTS_SPACE_H - SECURITY_GROUP_BORDER_DISTANCE*2
-        sg.w = (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE) * (max(sg_col_indexes) - min(sg_col_indexes) + 1) - SUBNET_BORDER_DISTANCE - 2* SECURITY_GROUP_BORDER_DISTANCE
+        if min(sg_col_indexes):
+            sg.w = (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE) * (max(sg_col_indexes) - min(sg_col_indexes) + 1) - SUBNET_BORDER_DISTANCE - 2* SECURITY_GROUP_BORDER_DISTANCE
+        else:
+            sg.w = ZONE_ELEMENTS_SPACE + (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE) * max(sg_col_indexes) - SUBNET_BORDER_DISTANCE - 2 * SECURITY_GROUP_BORDER_DISTANCE
     for element in network.elements:
         element.x = (NETWORK_ELEMENTS_SPACE - ICON_SIZE)/2
         element.y = (NETWORK_ELEMENTS_SPACE - ICON_SIZE)/2 + NETWORK_ELEMENTS_SPACE * network.elements.index(element)
@@ -325,6 +340,15 @@ def layouting(network):
     network.w = network.vpc.w + NETWORK_ELEMENTS_SPACE + VPC_BORDER_DISTANCE
     network.h = network.vpc.h + 2*VPC_BORDER_DISTANCE
 
+
+def layouting(network):
+    positions = set_positions(network)
+    minimize_positions(positions)
+    set_geometry(network, positions)
+
+
+
+
 #################################################################################################################
 
 id_counter = 100
@@ -337,6 +361,10 @@ def set_ids(me):
         child.parent = me
         set_ids(child)
 
+def set_sgs(network):
+    for sg in network.vpc.securityGroups:
+        for el in sg.elements:
+            el.securityGroup = sg
 
 def get_jinja_info(me):
     if 'diredge' not in me.type:
@@ -351,9 +379,17 @@ if __name__ == "__main__":
     template = templateEnv.get_template(file_name)
 
     network = build_graph()
-    set_ids(network)
-    layouting(network)
-    jinja_info = get_jinja_info(network)
-    outputText = template.render(elements=jinja_info)
-    with open('out.drawio', 'w') as f:
-        f.write(outputText)
+    with open('zone_el_in_sg.json', 'w') as f:
+        f.write(jsonpickle.encode(network, indent=2))
+    inputs_networks = ['from_adi', 'zone_el_in_sg']
+    for network_name in inputs_networks:
+        with open(network_name + '.json') as f:
+            network = jsonpickle.decode(f.read())
+
+        set_sgs(network)
+        set_ids(network)
+        layouting(network)
+        jinja_info = get_jinja_info(network)
+        outputText = template.render(elements=jinja_info)
+        with open(network_name + '.drawio', 'w') as f:
+            f.write(outputText)

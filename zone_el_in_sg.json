@@ -1,0 +1,337 @@
+{
+  "py/object": "__main__.Network",
+  "vpc": {
+    "py/object": "__main__.VPC",
+    "zones": [
+      {
+        "py/object": "__main__.Zone",
+        "name": "us-south-1",
+        "subnets": [
+          {
+            "py/object": "__main__.Subnet",
+            "name": "subnet1",
+            "IP": "10.240.10.0/24",
+            "key": "ACL1",
+            "zone": {
+              "py/id": 3
+            },
+            "elements": [
+              {
+                "py/object": "__main__.Element",
+                "name": "vsi1",
+                "type": "vsi",
+                "attached_to": null,
+                "securityGroup": null
+              }
+            ],
+            "type": "subnet"
+          },
+          {
+            "py/object": "__main__.Subnet",
+            "name": "subnet2",
+            "IP": "10.240.20.0/24",
+            "key": "ACL2",
+            "zone": {
+              "py/id": 3
+            },
+            "elements": [
+              {
+                "py/object": "__main__.Element",
+                "name": "vsi2",
+                "type": "vsi",
+                "attached_to": null,
+                "securityGroup": null
+              },
+              {
+                "py/object": "__main__.Element",
+                "name": "52.118.188.231",
+                "type": "floating_point",
+                "attached_to": "vsi2",
+                "securityGroup": null
+              }
+            ],
+            "type": "subnet"
+          },
+          {
+            "py/object": "__main__.Subnet",
+            "name": "subnet3",
+            "IP": "10.240.30.0/24",
+            "key": "ACL3",
+            "zone": {
+              "py/id": 3
+            },
+            "elements": [
+              {
+                "py/object": "__main__.Element",
+                "name": "vsi3a",
+                "type": "vsi",
+                "attached_to": null,
+                "securityGroup": null
+              },
+              {
+                "py/object": "__main__.Element",
+                "name": "vsi3b",
+                "type": "vsi",
+                "attached_to": null,
+                "securityGroup": null
+              },
+              {
+                "py/object": "__main__.Element",
+                "name": "db_endpoint_gw",
+                "type": "gateway",
+                "attached_to": null,
+                "securityGroup": null
+              }
+            ],
+            "type": "subnet"
+          }
+        ],
+        "elements": [
+          {
+            "py/object": "__main__.Element",
+            "name": "public_gw",
+            "type": "gateway",
+            "attached_to": null,
+            "securityGroup": null
+          },
+          {
+            "py/object": "__main__.Element",
+            "name": "public_gw2",
+            "type": "gateway",
+            "attached_to": null,
+            "securityGroup": null
+          }
+        ],
+        "type": "zone"
+      }
+    ],
+    "securityGroups": [
+      {
+        "py/object": "__main__.SecurityGroup",
+        "name": "sg1",
+        "elements": [
+          {
+            "py/id": 7
+          }
+        ],
+        "type": "sg"
+      },
+      {
+        "py/object": "__main__.SecurityGroup",
+        "name": "sg2",
+        "elements": [
+          {
+            "py/id": 10
+          },
+          {
+            "py/id": 15
+          },
+          {
+            "py/id": 11
+          }
+        ],
+        "type": "sg"
+      },
+      {
+        "py/object": "__main__.SecurityGroup",
+        "name": "sg3",
+        "elements": [
+          {
+            "py/id": 18
+          },
+          {
+            "py/id": 14
+          },
+          {
+            "py/id": 16
+          }
+        ],
+        "type": "sg"
+      }
+    ],
+    "type": "vpc"
+  },
+  "elements": [
+    {
+      "py/object": "__main__.Element",
+      "name": "142.0.0.0/8",
+      "type": "internet",
+      "attached_to": null,
+      "securityGroup": null
+    },
+    {
+      "py/object": "__main__.Element",
+      "name": "143.0.0.0/8",
+      "type": "internet",
+      "attached_to": null,
+      "securityGroup": null
+    },
+    {
+      "py/object": "__main__.Element",
+      "name": "147.235.219.206/32",
+      "type": "user",
+      "attached_to": null,
+      "securityGroup": null
+    }
+  ],
+  "edges": [
+    {
+      "py/object": "__main__.Edge",
+      "src": {
+        "py/id": 7
+      },
+      "dst": {
+        "py/id": 18
+      },
+      "type": "diredge",
+      "label": "",
+      "geometry": ""
+    },
+    {
+      "py/object": "__main__.Edge",
+      "src": {
+        "py/id": 7
+      },
+      "dst": {
+        "py/id": 19
+      },
+      "type": "diredge",
+      "label": "",
+      "geometry": ""
+    },
+    {
+      "py/object": "__main__.Edge",
+      "src": {
+        "py/id": 18
+      },
+      "dst": {
+        "py/id": 28
+      },
+      "type": "diredge",
+      "label": "ICMP",
+      "geometry": ""
+    },
+    {
+      "py/object": "__main__.Edge",
+      "src": {
+        "py/id": 18
+      },
+      "dst": {
+        "py/id": 29
+      },
+      "type": "diredge",
+      "label": "ICMP",
+      "geometry": ""
+    },
+    {
+      "py/object": "__main__.Edge",
+      "src": {
+        "py/id": 11
+      },
+      "dst": {
+        "py/id": 29
+      },
+      "type": "diredge",
+      "label": "ICMP",
+      "geometry": ""
+    },
+    {
+      "py/object": "__main__.Edge",
+      "src": {
+        "py/id": 30
+      },
+      "dst": {
+        "py/id": 11
+      },
+      "type": "diredge",
+      "label": "TCP 22",
+      "geometry": ""
+    },
+    {
+      "py/object": "__main__.Edge",
+      "src": {
+        "py/id": 10
+      },
+      "dst": {
+        "py/id": 7
+      },
+      "type": "diredge",
+      "label": "",
+      "geometry": ""
+    },
+    {
+      "py/object": "__main__.Edge",
+      "src": {
+        "py/id": 10
+      },
+      "dst": {
+        "py/id": 15
+      },
+      "type": "undiredge",
+      "label": "TCP",
+      "geometry": ""
+    },
+    {
+      "py/object": "__main__.Edge",
+      "src": {
+        "py/id": 15
+      },
+      "dst": {
+        "py/id": 7
+      },
+      "type": "diredge",
+      "label": "",
+      "geometry": ""
+    },
+    {
+      "py/object": "__main__.Edge",
+      "src": {
+        "py/id": 15
+      },
+      "dst": {
+        "py/id": 14
+      },
+      "type": "diredge",
+      "label": "",
+      "geometry": ""
+    },
+    {
+      "py/object": "__main__.Edge",
+      "src": {
+        "py/id": 15
+      },
+      "dst": {
+        "py/id": 16
+      },
+      "type": "diredge",
+      "label": "",
+      "geometry": ""
+    },
+    {
+      "py/object": "__main__.Edge",
+      "src": {
+        "py/id": 16
+      },
+      "dst": {
+        "py/id": 7
+      },
+      "type": "diredge",
+      "label": "",
+      "geometry": ""
+    },
+    {
+      "py/object": "__main__.Edge",
+      "src": {
+        "py/id": 14
+      },
+      "dst": {
+        "py/id": 7
+      },
+      "type": "diredge",
+      "label": "",
+      "geometry": ""
+    }
+  ],
+  "type": "pub",
+  "parent": null
+}
