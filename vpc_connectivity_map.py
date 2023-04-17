@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 import sys
 import jinja2
 import jsonpickle
+import json
 import itertools
 
 @dataclass
@@ -38,7 +39,6 @@ class Subnet:
     name: str
     IP: str
     key: str
-    zone: Zone
     elements: list = field(default_factory=list)
     type: str = 'subnet'
     def get_elements(self):
@@ -82,9 +82,9 @@ def build_graph():
     network = Network()
     vpc = VPC()
     us_south = Zone('us-south-1')
-    subnet1 = Subnet('subnet1', '10.240.10.0/24', 'ACL1', us_south)
-    subnet2 = Subnet('subnet2', '10.240.20.0/24', 'ACL2', us_south)
-    subnet3 = Subnet('subnet3', '10.240.30.0/24', 'ACL3', us_south)
+    subnet1 = Subnet('subnet1', '10.240.10.0/24', 'ACL1')
+    subnet2 = Subnet('subnet2', '10.240.20.0/24', 'ACL2')
+    subnet3 = Subnet('subnet3', '10.240.30.0/24', 'ACL3')
     securityGroup1 = SecurityGroup('sg1')
     securityGroup2 = SecurityGroup('sg2')
     securityGroup3 = SecurityGroup('sg3')
@@ -100,7 +100,7 @@ def build_graph():
     internet2 = Element('143.0.0.0/8', 'internet')
     user = Element('147.235.219.206/32', 'user')
 
-    network.parent = None
+
     network.vpc = vpc
 
     network.elements.append(internet1)
@@ -190,6 +190,8 @@ def merge_a_cols(positions):
                 sgs2 = set(el.securityGroup for el in col2.elements if el.securityGroup)
                 parents1 = [el.parent for el in col1.elements]
                 parents2 = [el.parent for el in col2.elements]
+                if not parents1 or not parents2:
+                    continue
                 if not isinstance(parents1[0], Subnet) or not isinstance(parents2[0], Subnet):
                     continue
                 if sgs1 & sgs2:
@@ -247,9 +249,9 @@ def set_positions(network):
             col.elements.append(el)
             el.col = col
         positions.cols.append(col)
-
-    zone_elements_col_index = positions.get_col_index(network.vpc.zones[0].elements[0].col)
-    positions.cols[0], positions.cols[zone_elements_col_index] = positions.cols[zone_elements_col_index], positions.cols[0]
+    if network.vpc.zones[0].elements:
+        zone_elements_col_index = positions.get_col_index(network.vpc.zones[0].elements[0].col)
+        positions.cols[0], positions.cols[zone_elements_col_index] = positions.cols[zone_elements_col_index], positions.cols[0]
     return positions
 
 def minimize_positions(positions):
@@ -264,9 +266,6 @@ def flip_a_clos(positions):
     for row in positions.rows:
         row_sgs = set(el.securityGroup for el in row.elements if el.securityGroup)
         if len(row_sgs) > 1:
-            sg_el = [(sg,  sg.elements) for sg in row_sgs]
-            sg_cols = [(sg, [el.col for el in sg.elements]) for sg in row_sgs]
-            sg_cols_i = [(sg, set(positions.get_col_index(el.col) for el in sg.elements)) for sg in row_sgs]
             sg_cols = [sorted(list(set(positions.get_col_index(el.col) for el in sg.elements))) for sg in row_sgs]
             sg_cols.sort(key=lambda sg: sg[0])
             for sg1, sg2 in zip(sg_cols[0:-1], sg_cols[1:]):
@@ -329,6 +328,8 @@ def set_zone_geometry(zone, positions):
 
 def set_geometry(network, positions):
     for zone in network.vpc.zones:
+        if not zone.elements:
+            positions.cols.insert(0, Col(positions))
         zone.x = ZONE_BORDER_DISTANCE
         zone.y = ZONE_BORDER_DISTANCE
         set_zone_geometry(zone, positions)
@@ -390,6 +391,63 @@ def get_jinja_info(me):
         me.geometry = f'x="{me.x}" y="{me.y}" width="{me.w}" height="{me.h}"'
     return [me] + list(itertools.chain(*[get_jinja_info(child) for child in me.get_elements()]))
 
+
+
+def read_connectivity(file):
+
+    with open(file) as f:
+        configs = json.load(f)
+    architecture = configs['architecture']
+    network = Network()
+    network.vpc = VPC()
+    network.vpc.zones.append(Zone('us-south-1'))
+    uid_to_subnet = {}
+    el_uid_to_subnet = {}
+    el_addr_to_sg = {}
+    el_uid_to_sg = {}
+    sg_filters = {filter['name']: filter['members'].split(',') for filter in architecture['Filters'] if filter['kind'] == 'SG' and filter['members']}
+    for sg_name, members in sg_filters.items():
+        sg = SecurityGroup(sg_name)
+        network.vpc.securityGroups.append(sg)
+        for addr in members:
+            el_addr_to_sg[addr] = sg
+    acl_filters = {filter['subnets']: filter['name'] for filter in architecture['Filters'] if filter['kind'] == 'NACL'}
+    for nodeset in [node for node in architecture['NodeSets'] if node['kind'] == 'Subnet']:
+        subnet_name = nodeset['name']
+        subnet_nodes = [node for node in architecture['Nodes'] if node.get('subnetUID', '') == nodeset['uid']]
+        subnet_address = nodeset['cidr']
+        subnet_acl_name = acl_filters[subnet_address]
+        subnet = Subnet(subnet_name, subnet_address, subnet_acl_name)
+        uid_to_subnet[nodeset['uid']] = subnet
+        network.vpc.zones[0].subnets.append(subnet)
+        for node in subnet_nodes:
+            if node['kind'] == 'NetworkInterface':
+                el = Element(node['vsiName'], 'vsi')
+                subnet.elements.append(el)
+                el_uid_to_subnet[node['uid']] = subnet
+                node_address = node['address']
+                if node_address in el_addr_to_sg:
+                    el_addr_to_sg[node_address].elements.append(el)
+                    el_uid_to_sg[node['uid']] = sg
+    for router in architecture['Routers']:
+        if router['kind'] == 'PublicGateway':
+            el = Element(router['name'], 'gateway')
+            network.vpc.zones[0].elements.append(el)
+        elif router['kind'] == 'FloatingIP':
+            attached_to = router['attached_to'].split(',')[0]
+            el = Element(router['cidr'], 'floating_point')
+            el_uid_to_subnet[attached_to].elements.append(el)
+            if attached_to in el_uid_to_sg:
+                el_uid_to_sg[attached_to].elements.append(el)
+        else:
+            print('unknown router')
+            continue
+
+    return network
+
+
+###############################################################################################
+
 if __name__ == "__main__":
 
     file_name = sys.argv[1]
@@ -397,15 +455,21 @@ if __name__ == "__main__":
     templateEnv = jinja2.Environment(loader=templateLoader)
     template = templateEnv.get_template(file_name)
 
-    # network = build_graph()
-    # with open('zone_el_in_sg.json', 'w') as f:
-    #     f.write(jsonpickle.encode(network, indent=2))
+    #read_json('examples/sg_testing1/config_object.json')
+    network = read_connectivity('examples/sg_testing1/out_sg_testing1.json')
+
+    #network = build_graph()
+    network.parent = None
+    #with open('examples/zone_el_in_sg.json', 'w') as f:
+    with open('examples/my_out_sg_testing1.json', 'w') as f:
+            f.write(jsonpickle.encode(network, indent=2))
     inputs_networks = [
-        'from_adi',
-        'zone_el_in_sg',
+        # 'from_adi',
+        # 'zone_el_in_sg',
+        'my_out_sg_testing1',
     ]
     for network_name in inputs_networks:
-        with open(network_name + '.json') as f:
+        with open('examples/' + network_name + '.json') as f:
             network = jsonpickle.decode(f.read())
 
         set_sgs(network)
@@ -413,5 +477,5 @@ if __name__ == "__main__":
         layouting(network)
         jinja_info = get_jinja_info(network)
         outputText = template.render(elements=jinja_info)
-        with open(network_name + '.drawio', 'w') as f:
+        with open('examples/' + network_name + '.drawio', 'w') as f:
             f.write(outputText)

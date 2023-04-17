@@ -12,7 +12,7 @@
             "name": "subnet1",
             "IP": "10.240.10.0/24",
             "key": "ACL1",
-            "zone": {
+            "zone2": {
               "py/id": 3
             },
             "elements": [
@@ -31,7 +31,7 @@
             "name": "subnet2",
             "IP": "10.240.20.0/24",
             "key": "ACL2",
-            "zone": {
+            "zone2": {
               "py/id": 3
             },
             "elements": [
@@ -57,7 +57,7 @@
             "name": "subnet3",
             "IP": "10.240.30.0/24",
             "key": "ACL3",
-            "zone": {
+            "zone2": {
               "py/id": 3
             },
             "elements": [
