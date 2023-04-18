@@ -428,7 +428,7 @@ def read_connectivity(file):
         subnet_name = nodeset['name']
         subnet_nodes = [node for node in architecture['Nodes'] if node.get('subnetUID', '') == nodeset['uid']]
         subnet_address = nodeset['cidr']
-        subnet_acl_name = acl_filters[subnet_address]
+        subnet_acl_name = acl_filters.get(subnet_address, 'no_acl_name')
         subnet = Subnet(subnet_name, subnet_address, subnet_acl_name)
         uid_to_subnet[nodeset['uid']] = subnet
         network.vpc.zones[0].subnets.append(subnet)
@@ -502,9 +502,9 @@ if __name__ == "__main__":
     #     with open('examples/' + network_name + '.json') as f:
     #         network = jsonpickle.decode(f.read())
     files = [
-        'examples/sg_testing1/out_sg_testing1.json',
-        'examples/acl_testing3/out_acl_testing3.json',
-        #'examples/demo/out_demo2.json'
+        # 'examples/sg_testing1/out_sg_testing1.json',
+        # 'examples/acl_testing3/out_acl_testing3.json',
+        'examples/demo/out_demo2.json'
     ]
     for file in files:
         network_name = os.path.basename(file)
