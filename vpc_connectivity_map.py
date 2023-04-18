@@ -295,17 +295,23 @@ ZONE_ELEMENTS_SPACE = 4*40
 SUBNET_ELEMENTS_SPACE_H = 6*40
 SUBNET_ELEMENTS_SPACE_W = 8*40
 ICON_SIZE = 60
-
+INROW_DISTANCE = (ICON_SIZE + 40)/2
 
 
 def set_subnet_geometry(subnet, positions):
+    inrow_geometry = [
+        [],
+        [(0, 0)],
+        [(-INROW_DISTANCE, 0), (INROW_DISTANCE, 0)],
+        [(INROW_DISTANCE, -INROW_DISTANCE), (-INROW_DISTANCE, 0), (INROW_DISTANCE, INROW_DISTANCE)],
+    ]
     subnet_row_min_index = min(set(positions.get_row_index(el.row) for el in subnet.elements))
     for element in subnet.elements:
-        element_row_index = positions.get_row_index(element.row) - subnet_row_min_index
-        element.y = (SUBNET_ELEMENTS_SPACE_H - ICON_SIZE) / 2 + (SUBNET_ELEMENTS_SPACE_H + SUBNET_BORDER_DISTANCE) * element_row_index
         subnet_elements_in_row = [el for el in element.row.elements if el.parent == element.parent]
-        elements_space = (SUBNET_ELEMENTS_SPACE_W - 2*SECURITY_GROUP_BORDER_DISTANCE - len(subnet_elements_in_row)*ICON_SIZE)/(len(subnet_elements_in_row) + 1)
-        element.x = SECURITY_GROUP_BORDER_DISTANCE + elements_space + subnet_elements_in_row.index(element)*(elements_space + ICON_SIZE)
+        element_index = subnet_elements_in_row.index(element)
+        element_row_index = positions.get_row_index(element.row) - subnet_row_min_index
+        element.y = (SUBNET_ELEMENTS_SPACE_H - ICON_SIZE)/2 + inrow_geometry[len(subnet_elements_in_row)][element_index][1] + (SUBNET_ELEMENTS_SPACE_H + SUBNET_BORDER_DISTANCE) * element_row_index
+        element.x = (SUBNET_ELEMENTS_SPACE_W - ICON_SIZE)/2 + inrow_geometry[len(subnet_elements_in_row)][element_index][0]
         element.h = ICON_SIZE
         element.w = ICON_SIZE
 
@@ -497,7 +503,8 @@ if __name__ == "__main__":
     #         network = jsonpickle.decode(f.read())
     files = [
         'examples/sg_testing1/out_sg_testing1.json',
-        'examples/acl_testing3/out_acl_testing3.json'
+        'examples/acl_testing3/out_acl_testing3.json',
+        #'examples/demo/out_demo2.json'
     ]
     for file in files:
         network_name = os.path.basename(file)
