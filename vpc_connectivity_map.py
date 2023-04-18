@@ -2,6 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import sys
 import os
+import shutil
 import jinja2
 import jsonpickle
 import json
@@ -78,6 +79,7 @@ class Edge:
     type: str
     label: str
     geometry: str = ''
+    points: list = field(default_factory=list)
     def get_elements(self):
         return []
 
@@ -258,13 +260,27 @@ def set_positions(network):
         positions.cols[0], positions.cols[zone_elements_col_index] = positions.cols[zone_elements_col_index], positions.cols[0]
     return positions
 
-def minimize_positions(positions):
+def minimize_positions(positions, max_steps=1000 ):
+    steps = 0
+    if steps >= max_steps:
+        return True
     while merge_a_cols(positions):
+        steps += 1
+        if max_steps < steps:
+            return True
         pass
     while merge_a_rows(positions):
+        steps += 1
+        if max_steps < steps:
+            return True
         pass
     while flip_a_clos(positions):
+        steps += 1
+        if max_steps < steps:
+            return True
         pass
+    return False
+
 
 def flip_a_clos(positions):
     for row in positions.rows:
@@ -371,11 +387,11 @@ def set_geometry(network, positions):
     network.h = network.vpc.h + 2*VPC_BORDER_DISTANCE
 
 
-def layouting(network):
+def layouting(network, max_steps):
     positions = set_positions(network)
-    minimize_positions(positions)
+    r = minimize_positions(positions, max_steps)
     set_geometry(network, positions)
-
+    return r
 
 
 
@@ -502,9 +518,9 @@ if __name__ == "__main__":
     #     with open('examples/' + network_name + '.json') as f:
     #         network = jsonpickle.decode(f.read())
     files = [
-        # 'examples/sg_testing1/out_sg_testing1.json',
-        # 'examples/acl_testing3/out_acl_testing3.json',
-        'examples/demo/out_demo2.json'
+         'examples/sg_testing1/out_sg_testing1.json',
+         'examples/acl_testing3/out_acl_testing3.json',
+        #'examples/demo/out_demo2.json'
     ]
     for file in files:
         network_name = os.path.basename(file)
@@ -512,8 +528,14 @@ if __name__ == "__main__":
         network.parent = None
         set_sgs(network)
         set_ids(network)
-        layouting(network)
-        jinja_info = get_jinja_info(network)
-        outputText = template.render(elements=jinja_info)
-        with open('examples/' + network_name + '.drawio', 'w') as f:
-            f.write(outputText)
+        steps = 0
+        dir = 'examples/' + network_name
+        if os.path.isdir(dir):
+            shutil.rmtree(dir)
+        os.mkdir(dir)
+        while layouting(network, steps):
+            jinja_info = get_jinja_info(network)
+            outputText = template.render(elements=jinja_info)
+            with open(dir + '/' + str(steps) + '.drawio', 'w') as f:
+                f.write(outputText)
+            steps += 1

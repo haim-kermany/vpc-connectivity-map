@@ -61,13 +61,24 @@
             </mxCell>
         {% elif element.type  == "undiredge" %}
             <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element.id}}" value="{{ element.label}}" style="endArrow=classic;startArrow=classic;" edge="1" parent="1" source="FXCXVvDxTQtwc45PbP1s-{{ element.src.id}}" target="FXCXVvDxTQtwc45PbP1s-{{ element.dst.id}}">
-            <mxGeometry relative="1" as="geometry"/>
+            <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+            {% for point in elements.points %}
+                <mxPoint x="point.x" y="point.y"/>
+            {% endfor %}
+            </Array>
+            </mxGeometry>
             </mxCell>
         {% elif element.type  == "diredge" %}
             <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element.id}}" value="{{ element.label}}" style="endArrow=classic;" edge="1" parent="1" source="FXCXVvDxTQtwc45PbP1s-{{ element.src.id}}" target="FXCXVvDxTQtwc45PbP1s-{{ element.dst.id}}">
-            <mxGeometry relative="1" as="geometry"/>
+            <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+            {% for point in elements.points %}
+                <mxPoint x="point.x" y="point.y"/>
+            {% endfor %}
+            </Array>
+            </mxGeometry>
             </mxCell>
-
 
         {% endif %}
 
