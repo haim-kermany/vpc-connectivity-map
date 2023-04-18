@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 import sys
+import os
 import jinja2
 import jsonpickle
 import json
@@ -66,7 +67,10 @@ class Element:
         return []
     def __hash__(self):
         return self.name.__hash__()
-
+    def __hash__(self):
+        return self.name.__hash__()
+    def __lt__(self, other):
+        return self.name < other.name
 @dataclass
 class Edge:
     src: object
@@ -398,6 +402,7 @@ def read_connectivity(file):
     with open(file) as f:
         configs = json.load(f)
     architecture = configs['architecture']
+    connectivity = configs['connectivity']
     network = Network()
     network.vpc = VPC()
     network.vpc.zones.append(Zone('us-south-1'))
@@ -405,6 +410,7 @@ def read_connectivity(file):
     el_uid_to_subnet = {}
     el_addr_to_sg = {}
     el_uid_to_sg = {}
+    uid_to_el = {}
     sg_filters = {filter['name']: filter['members'].split(',') for filter in architecture['Filters'] if filter['kind'] == 'SG' and filter['members']}
     for sg_name, members in sg_filters.items():
         sg = SecurityGroup(sg_name)
@@ -423,6 +429,7 @@ def read_connectivity(file):
         for node in subnet_nodes:
             if node['kind'] == 'NetworkInterface':
                 el = Element(node['vsiName'], 'vsi')
+                uid_to_el[node['uid']] = el
                 subnet.elements.append(el)
                 el_uid_to_subnet[node['uid']] = subnet
                 node_address = node['address']
@@ -442,6 +449,25 @@ def read_connectivity(file):
         else:
             print('unknown router')
             continue
+        uid_to_el[router['uid']] = el
+
+    for node in [node for node in architecture['Nodes'] if node['kind'] == 'ExternalNetwork']:
+        el = Element(node['cidr'], 'internet')
+        network.elements.append(el)
+        uid_to_el[node['cidr']] = el
+
+    for edge in connectivity:
+        src_id = edge['src']['ResourceUID'] if edge['src']['ResourceUID'] else edge['src']['CidrStr']
+        dst_id = edge['dst']['ResourceUID'] if edge['dst']['ResourceUID'] else edge['dst']['CidrStr']
+        e = Edge(uid_to_el[src_id], uid_to_el[dst_id], 'diredge', edge['conn'] if edge['conn'] != 'All Connections' else '')
+        network.edges.append(e)
+
+    dir_edges_to_remove = [e for e in network.edges if Edge(e.dst,e.src,'diredge',e.label) in network.edges]
+    dir_edges_to_stay = [e for e in network.edges if e not in dir_edges_to_remove]
+    undir_edges_to_add = [Edge(e.dst, e.src, 'undiredge', e.label) for e in dir_edges_to_remove if e.src < e.dst]
+    network.edges = dir_edges_to_stay + undir_edges_to_add
+
+    network.elements = [ el for el in network.elements if el in [e.src for e in network.edges] + [e.dst for e in network.edges]]
 
     return network
 
@@ -455,23 +481,28 @@ if __name__ == "__main__":
     templateEnv = jinja2.Environment(loader=templateLoader)
     template = templateEnv.get_template(file_name)
 
-    #read_json('examples/sg_testing1/config_object.json')
-    network = read_connectivity('examples/sg_testing1/out_sg_testing1.json')
 
     #network = build_graph()
-    network.parent = None
+    # network.parent = None
     #with open('examples/zone_el_in_sg.json', 'w') as f:
-    with open('examples/my_out_sg_testing1.json', 'w') as f:
-            f.write(jsonpickle.encode(network, indent=2))
-    inputs_networks = [
-        # 'from_adi',
-        # 'zone_el_in_sg',
-        'my_out_sg_testing1',
+    # with open('examples/my_out_sg_testing1.json', 'w') as f:
+    #         f.write(jsonpickle.encode(network, indent=2))
+    # inputs_networks = [
+    #     # 'from_adi',
+    #     # 'zone_el_in_sg',
+    #     'my_out_sg_testing1',
+    # ]
+    # for network_name in inputs_networks:
+    #     with open('examples/' + network_name + '.json') as f:
+    #         network = jsonpickle.decode(f.read())
+    files = [
+        'examples/sg_testing1/out_sg_testing1.json',
+        'examples/acl_testing3/out_acl_testing3.json'
     ]
-    for network_name in inputs_networks:
-        with open('examples/' + network_name + '.json') as f:
-            network = jsonpickle.decode(f.read())
-
+    for file in files:
+        network_name = os.path.basename(file)
+        network = read_connectivity(file)
+        network.parent = None
         set_sgs(network)
         set_ids(network)
         layouting(network)
