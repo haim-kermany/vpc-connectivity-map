@@ -78,10 +78,13 @@ class Edge:
     dst: object
     type: str
     label: str
-    geometry: str = ''
     points: list = field(default_factory=list)
+    def __hash__(self):
+        return self.src.name.__hash__() + self.dst.name.__hash__()
     def get_elements(self):
         return []
+    def get_name(self):
+        return f'{self.src.name}->{self.dst.name}'
 
 
 def build_graph():
@@ -260,7 +263,7 @@ def set_positions(network):
         positions.cols[0], positions.cols[zone_elements_col_index] = positions.cols[zone_elements_col_index], positions.cols[0]
     return positions
 
-def minimize_positions(positions, max_steps=1000 ):
+def minimize_positions(positions, max_steps):
     steps = 0
     if steps >= max_steps:
         return True
@@ -386,11 +389,64 @@ def set_geometry(network, positions):
     network.w = network.vpc.w + NETWORK_ELEMENTS_SPACE + VPC_BORDER_DISTANCE
     network.h = network.vpc.h + 2*VPC_BORDER_DISTANCE
 
+def get_element_abs_position(el):
+    if not el.parent:
+        return (0,0)
+    return (get_element_abs_position(el.parent)[0] + el.x, get_element_abs_position(el.parent)[1] + el.y)
+
+
+MATRIX_GRANOLATITY = ICON_SIZE
+def get_el_abs_posiotions(me, matrix):
+    if isinstance(me, Element):
+        x,y = get_element_abs_position(me)
+        matrix[int(y/MATRIX_GRANOLATITY)][int(x/MATRIX_GRANOLATITY)][0].add(me)
+    for child in me.get_elements():
+        get_el_abs_posiotions(child,matrix)
+
+def get_edges_abs_posiotions(network, matrix):
+    for edge in network.edges:
+        x1, y1 = get_element_abs_position(edge.src)
+        x2, y2 = get_element_abs_position(edge.dst)
+        n_steps = int(max(abs(x2 - x1), abs(y2 - y1))/MATRIX_GRANOLATITY*2) + 1
+        x_step = (x2 - x1)/n_steps
+        y_step = (y2 - y1)/n_steps
+        for x, y in zip([x1+x_step*i for i in range(n_steps)], [y1+y_step*i for i in range(n_steps)]):
+            matrix[int(y / MATRIX_GRANOLATITY)][int(x / MATRIX_GRANOLATITY)][1].add(edge)
+
+def get_matrix(network):
+    h = network.h/MATRIX_GRANOLATITY
+    w = network.w/MATRIX_GRANOLATITY
+    matrix = [[(set(),set()) for x in range(int(w))] for y in range(int(h))]
+    get_el_abs_posiotions(network,matrix)
+    get_edges_abs_posiotions(network,matrix)
+    edge_to_break = set()
+    for y in range(len(matrix)):
+        for x in range(len(matrix[y])):
+            if matrix[y][x][0] and matrix[y][x][1]:
+                for edge in matrix[y][x][1]:
+                    if edge.src not in matrix[y][x][0] and edge.dst not in matrix[y][x][0]:
+                        print(edge.get_name(), set(e.name for e in matrix[y][x][0]))
+                        edge_to_break.add(edge)
+    for edge in edge_to_break:
+        x1, y1 = get_element_abs_position(edge.src)
+        x2, y2 = get_element_abs_position(edge.dst)
+        if abs(x2 - x1) > abs(y2 - y1):
+            point_y = min(y1,y2) - SUBNET_ELEMENTS_SPACE_H/2 + ICON_SIZE
+            point_x = (x1 + x2)/2
+        else:
+            point_x = min(x1, x2) - SUBNET_ELEMENTS_SPACE_H/2 + ICON_SIZE
+            point_y = (y1 + y2) / 2
+        edge.points = [(point_x, point_y)]
+    return matrix
+
+def break_overlaping(network):
+    matrix = get_matrix(network)
 
 def layouting(network, max_steps):
     positions = set_positions(network)
     r = minimize_positions(positions, max_steps)
     set_geometry(network, positions)
+    break_overlaping(network)
     return r
 
 
@@ -489,7 +545,7 @@ def read_connectivity(file):
     undir_edges_to_add = [Edge(e.dst, e.src, 'undiredge', e.label) for e in dir_edges_to_remove if e.src < e.dst]
     network.edges = dir_edges_to_stay + undir_edges_to_add
 
-    network.elements = [ el for el in network.elements if el in [e.src for e in network.edges] + [e.dst for e in network.edges]]
+    network.elements = [el for el in network.elements if el in [e.src for e in network.edges] + [e.dst for e in network.edges]]
 
     return network
 
@@ -504,23 +560,10 @@ if __name__ == "__main__":
     template = templateEnv.get_template(file_name)
 
 
-    #network = build_graph()
-    # network.parent = None
-    #with open('examples/zone_el_in_sg.json', 'w') as f:
-    # with open('examples/my_out_sg_testing1.json', 'w') as f:
-    #         f.write(jsonpickle.encode(network, indent=2))
-    # inputs_networks = [
-    #     # 'from_adi',
-    #     # 'zone_el_in_sg',
-    #     'my_out_sg_testing1',
-    # ]
-    # for network_name in inputs_networks:
-    #     with open('examples/' + network_name + '.json') as f:
-    #         network = jsonpickle.decode(f.read())
     files = [
          'examples/sg_testing1/out_sg_testing1.json',
          'examples/acl_testing3/out_acl_testing3.json',
-        #'examples/demo/out_demo2.json'
+         'examples/demo/out_demo2.json'
     ]
     for file in files:
         network_name = os.path.basename(file)
