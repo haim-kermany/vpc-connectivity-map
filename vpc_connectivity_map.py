@@ -171,6 +171,7 @@ class Row:
 @dataclass
 class Col:
     positions: Positions
+    zone: Zone
     elements: list = field(default_factory=list)
 
 @dataclass
@@ -194,7 +195,7 @@ class Positions:
 def merge_a_cols(positions):
     for col1 in positions.cols:
         for col2 in positions.cols:
-            if col1 != col2:
+            if col1 != col2 and col1.zone == col2.zone:
                 sgs1 = set(el.securityGroup for el in col1.elements if el.securityGroup)
                 sgs2 = set(el.securityGroup for el in col2.elements if el.securityGroup)
                 parents1 = [el.parent for el in col1.elements]
@@ -237,6 +238,25 @@ def merge_a_rows(positions):
     return False
 
 
+def flip_a_clos(positions):
+    for row in positions.rows:
+        row_sgs = set(el.securityGroup for el in row.elements if el.securityGroup)
+        if len(row_sgs) > 1:
+            sg_cols = [sorted(list(set(positions.get_col_index(el.col) for el in sg.elements))) for sg in row_sgs]
+            all_cols = sum(sg_cols,[])
+            if len(set( positions.cols[col].zone for col in sum(sg_cols,[]))) > 1:
+                continue
+            sg_cols.sort(key=lambda sg: sg[0])
+            for sg1, sg2 in zip(sg_cols[0:-1], sg_cols[1:]):
+                if sg1[-1] > sg2[0]:
+                    all_cols_indexes = sg1 + sg2
+                    all_cols_new_indexes = sorted(all_cols_indexes)
+                    old_col = positions.cols.copy()
+                    for o, n in zip(all_cols_indexes, all_cols_new_indexes):
+                        positions.cols[n] = old_col[o]
+                    return True
+    return False
+
 def set_positions(network):
     positions = Positions()
 
@@ -250,14 +270,14 @@ def set_positions(network):
             el.row = row
         positions.rows.append(row)
 
-    elements_lists = [subnet.elements for zone in network.vpc.zones for subnet in zone.subnets]
-    elements_lists += [zone.elements for zone in network.vpc.zones]
-    for elements_list in elements_lists:
-        col = Col(positions)
-        for el in elements_list:
-            col.elements.append(el)
-            el.col = col
-        positions.cols.append(col)
+    for zone in network.vpc.zones:
+        for subnet_or_zone in [zone] + zone.subnets:
+            elements_list = subnet_or_zone.elements
+            col = Col(positions, zone)
+            for el in elements_list:
+                col.elements.append(el)
+                el.col = col
+            positions.cols.append(col)
     if network.vpc.zones[0].elements:
         zone_elements_col_index = positions.get_col_index(network.vpc.zones[0].elements[0].col)
         positions.cols[0], positions.cols[zone_elements_col_index] = positions.cols[zone_elements_col_index], positions.cols[0]
@@ -284,22 +304,6 @@ def minimize_positions(positions, max_steps):
         pass
     return False
 
-
-def flip_a_clos(positions):
-    for row in positions.rows:
-        row_sgs = set(el.securityGroup for el in row.elements if el.securityGroup)
-        if len(row_sgs) > 1:
-            sg_cols = [sorted(list(set(positions.get_col_index(el.col) for el in sg.elements))) for sg in row_sgs]
-            sg_cols.sort(key=lambda sg: sg[0])
-            for sg1, sg2 in zip(sg_cols[0:-1], sg_cols[1:]):
-                if sg1[-1] > sg2[0]:
-                    all_cols_indexes = sg1 + sg2
-                    all_cols_new_indexes = sorted(all_cols_indexes)
-                    old_col = positions.cols.copy()
-                    for o,n in zip(all_cols_indexes,all_cols_new_indexes):
-                        positions.cols[n] = old_col[o]
-                    return True
-    return False
 
 ###################################################################################################
 
@@ -336,10 +340,11 @@ def set_subnet_geometry(subnet, positions):
 
 
 def set_zone_geometry(zone, positions):
+    zone_cols = [i for i in range(len(positions.cols)) if positions.cols[i].zone == zone]
     for subnet in zone.subnets:
         subnet_col_index = positions.get_col_index(subnet.elements[0].col)
         subnet_row_indexes = set(positions.get_row_index(el.row) for el in subnet.elements)
-        subnet.x = ZONE_ELEMENTS_SPACE + (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE) * (subnet_col_index - 1)
+        subnet.x = ZONE_ELEMENTS_SPACE + (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE) * (subnet_col_index - min(zone_cols)- 1)
         subnet.y = (SUBNET_BORDER_DISTANCE + SUBNET_ELEMENTS_SPACE_H) * min(subnet_row_indexes) + SUBNET_BORDER_DISTANCE
         subnet.h = (SUBNET_ELEMENTS_SPACE_H  + SUBNET_BORDER_DISTANCE)* (max(subnet_row_indexes) - min(subnet_row_indexes) + 1) - SUBNET_BORDER_DISTANCE
         subnet.w = SUBNET_ELEMENTS_SPACE_W
@@ -351,43 +356,46 @@ def set_zone_geometry(zone, positions):
         element.h = ICON_SIZE
         element.w = ICON_SIZE
     zone.h = (SUBNET_ELEMENTS_SPACE_H + SUBNET_BORDER_DISTANCE) * positions.get_n_rows() + SUBNET_BORDER_DISTANCE
-    n_cols_in_zone = positions.get_n_cols()
+    n_cols_in_zone = max(zone_cols) - min(zone_cols) + 1
     zone.w = ZONE_ELEMENTS_SPACE + (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE) * (n_cols_in_zone - 1)
 
 
 def set_geometry(network, positions):
+    network.vpc.x = NETWORK_ELEMENTS_SPACE
+    network.vpc.y = VPC_BORDER_DISTANCE
+    network.x = NETWORK_BORDER_DISTANCE
+    network.y = NETWORK_BORDER_DISTANCE
+
+    current_zone_x = ZONE_BORDER_DISTANCE
     for zone in network.vpc.zones:
-        if not zone.elements:
-            positions.cols.insert(0, Col(positions))
-        zone.x = ZONE_BORDER_DISTANCE
+        zone.x = current_zone_x
         zone.y = ZONE_BORDER_DISTANCE
         set_zone_geometry(zone, positions)
+        current_zone_x += zone.w + ZONE_BORDER_DISTANCE
     for sg in network.vpc.securityGroups:
-        sg_col_indexes = set(positions.get_col_index(el.col) for el in sg.elements)
         sg_row_index = positions.get_row_index(sg.elements[0].row)
         sg.y = ZONE_BORDER_DISTANCE + SUBNET_BORDER_DISTANCE + sg_row_index*(SUBNET_ELEMENTS_SPACE_H + SUBNET_BORDER_DISTANCE) + SECURITY_GROUP_BORDER_DISTANCE
-        sg.x = ZONE_BORDER_DISTANCE + SECURITY_GROUP_BORDER_DISTANCE
-        if min(sg_col_indexes):
-            sg.x += ZONE_ELEMENTS_SPACE + (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE)*(min(sg_col_indexes) - 1)
-
         sg.h = SUBNET_ELEMENTS_SPACE_H - SECURITY_GROUP_BORDER_DISTANCE*2
-        if min(sg_col_indexes):
-            sg.w = (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE) * (max(sg_col_indexes) - min(sg_col_indexes) + 1) - SUBNET_BORDER_DISTANCE - 2* SECURITY_GROUP_BORDER_DISTANCE
-        else:
-            sg.w = ZONE_ELEMENTS_SPACE + (SUBNET_ELEMENTS_SPACE_W + SUBNET_BORDER_DISTANCE) * max(sg_col_indexes) - SUBNET_BORDER_DISTANCE - 2 * SECURITY_GROUP_BORDER_DISTANCE
+
+        elements_abs_x = [get_element_abs_position(el)[0] for el in sg.elements]
+        sg.x = min(elements_abs_x) - SECURITY_GROUP_BORDER_DISTANCE - network.vpc.x
+        sg.w = max(elements_abs_x) - min(elements_abs_x) + 2*SECURITY_GROUP_BORDER_DISTANCE + ICON_SIZE
     for element in network.elements:
         element.x = (NETWORK_ELEMENTS_SPACE - ICON_SIZE)/2
         element.y = (NETWORK_ELEMENTS_SPACE - ICON_SIZE)/2 + NETWORK_ELEMENTS_SPACE * network.elements.index(element)
         element.h = ICON_SIZE
         element.w = ICON_SIZE
-    network.vpc.x = NETWORK_ELEMENTS_SPACE
-    network.vpc.y = VPC_BORDER_DISTANCE
     network.vpc.w = sum(zone.w for zone in network.vpc.zones) + ZONE_BORDER_DISTANCE*(len(network.vpc.zones) + 1)
     network.vpc.h = max(zone.h for zone in network.vpc.zones) + ZONE_BORDER_DISTANCE*2
-    network.x = NETWORK_BORDER_DISTANCE
-    network.y = NETWORK_BORDER_DISTANCE
     network.w = network.vpc.w + NETWORK_ELEMENTS_SPACE + VPC_BORDER_DISTANCE
     network.h = network.vpc.h + 2*VPC_BORDER_DISTANCE
+
+
+
+
+
+
+###########################################################################################
 
 def get_element_abs_position(el):
     if not el.parent:
@@ -483,7 +491,7 @@ def read_connectivity(file):
     connectivity = configs['connectivity']
     network = Network()
     network.vpc = VPC()
-    network.vpc.zones.append(Zone('us-south-1'))
+    network.vpc.zones = [Zone(name) for name in set( node['zone'] for node in architecture['NodeSets'] if 'zone' in node )]
     uid_to_subnet = {}
     el_uid_to_subnet = {}
     el_addr_to_sg = {}
@@ -503,7 +511,8 @@ def read_connectivity(file):
         subnet_acl_name = acl_filters.get(subnet_address, 'no_acl_name')
         subnet = Subnet(subnet_name, subnet_address, subnet_acl_name)
         uid_to_subnet[nodeset['uid']] = subnet
-        network.vpc.zones[0].subnets.append(subnet)
+        zone = [zone for zone in network.vpc.zones if zone.name == nodeset['zone']][0]
+        zone.subnets.append(subnet)
         for node in subnet_nodes:
             if node['kind'] == 'NetworkInterface':
                 el = Element(node['vsiName'], 'vsi')
