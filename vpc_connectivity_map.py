@@ -422,6 +422,8 @@ def get_edges_abs_posiotions(network, matrix):
             matrix[int(y / MATRIX_GRANOLATITY)][int(x / MATRIX_GRANOLATITY)][1].add(edge)
 
 def get_matrix(network):
+    for edge in network.edges:
+        edge.points.clear()
     h = network.h/MATRIX_GRANOLATITY
     w = network.w/MATRIX_GRANOLATITY
     matrix = [[(set(),set()) for x in range(int(w))] for y in range(int(h))]
@@ -558,6 +560,20 @@ def read_connectivity(file):
 
     network.elements = [el for el in network.elements if el in [e.src for e in network.edges] + [e.dst for e in network.edges]]
 
+    new_sgs = []
+    for sg in network.vpc.securityGroups:
+        if len(sg.elements) > 6:
+            names = {e.name: e for e in sg.elements}
+            inits = set(n[0] for n in names)
+            for init in inits:
+                new_sg = SecurityGroup(sg.name)
+                for el in [el for n,el in names.items() if n.startswith(init)]:
+                    new_sg.elements.append(el)
+                new_sgs.append(new_sg)
+        else:
+            new_sgs.append(sg)
+    network.vpc.securityGroups = new_sgs
+
     return network
 
 
@@ -572,9 +588,9 @@ if __name__ == "__main__":
 
 
     files = [
-         # 'examples/sg_testing1/out_sg_testing1.json',
-         # 'examples/acl_testing3/out_acl_testing3.json',
-         'examples/demo/out_demo2.json'
+          'examples/sg_testing1/out_sg_testing1.json',
+          'examples/acl_testing3/out_acl_testing3.json',
+          'examples/demo/out_demo2.json'
     ]
     for file in files:
         network_name = os.path.basename(file)
@@ -588,6 +604,7 @@ if __name__ == "__main__":
             shutil.rmtree(dir)
         os.mkdir(dir)
         while layouting(network, steps):
+            print('xxxxxxxxxxxxxxxxxxx',dir,steps)
             jinja_info = get_jinja_info(network)
             outputText = template.render(elements=jinja_info)
             with open(dir + '/' + str(steps) + '.drawio', 'w') as f:
