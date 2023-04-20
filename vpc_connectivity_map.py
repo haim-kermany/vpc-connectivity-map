@@ -494,6 +494,7 @@ def read_connectivity(file):
     network.vpc.zones = [Zone(name) for name in set( node['zone'] for node in architecture['NodeSets'] if 'zone' in node )]
     uid_to_subnet = {}
     el_uid_to_subnet = {}
+    el_uid_to_zone = {}
     el_addr_to_sg = {}
     el_uid_to_sg = {}
     uid_to_el = {}
@@ -519,16 +520,17 @@ def read_connectivity(file):
                 uid_to_el[node['uid']] = el
                 subnet.elements.append(el)
                 el_uid_to_subnet[node['uid']] = subnet
+                el_uid_to_zone[node['uid']] = zone
                 node_address = node['address']
                 if node_address in el_addr_to_sg:
                     el_addr_to_sg[node_address].elements.append(el)
                     el_uid_to_sg[node['uid']] = sg
     for router in architecture['Routers']:
+        attached_to = router['attached_to'].split(',')[0]
         if router['kind'] == 'PublicGateway':
             el = Element(router['name'], 'gateway')
-            network.vpc.zones[0].elements.append(el)
+            el_uid_to_zone[attached_to].elements.append(el)
         elif router['kind'] == 'FloatingIP':
-            attached_to = router['attached_to'].split(',')[0]
             el = Element(router['cidr'], 'floating_point')
             el_uid_to_subnet[attached_to].elements.append(el)
             if attached_to in el_uid_to_sg:
@@ -570,8 +572,8 @@ if __name__ == "__main__":
 
 
     files = [
-         'examples/sg_testing1/out_sg_testing1.json',
-         'examples/acl_testing3/out_acl_testing3.json',
+         # 'examples/sg_testing1/out_sg_testing1.json',
+         # 'examples/acl_testing3/out_acl_testing3.json',
          'examples/demo/out_demo2.json'
     ]
     for file in files:
