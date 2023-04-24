@@ -59,7 +59,7 @@
             <mxGeometry x="{{element.x}}" y="{{element.y}}" width="74" height="36" as="geometry"/>
             </mxCell>
             <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element.id + 2}}" value="{{ element.name}}" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/FloatingIP.svg;flipH=1;" parent="FXCXVvDxTQtwc45PbP1s-{{ element.id}}" vertex="1">
-            <mxGeometry x="-60" y="0" width="60" height="60" as="geometry"/>
+            <mxGeometry x="-50" y="10" width="60" height="60" as="geometry"/>
             </mxCell>
         {% elif element.type  == "vsi_ni_vsi_fp" %}
             <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element.id + 1}}" value="{{ element.name}}" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/Instance.svg;" parent="FXCXVvDxTQtwc45PbP1s-{{ element.parent.id}}" vertex="1">

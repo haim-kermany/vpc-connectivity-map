@@ -377,7 +377,7 @@ def set_geometry(network, positions):
         sg.h = SUBNET_ELEMENTS_SPACE_H - SECURITY_GROUP_BORDER_DISTANCE*2
 
         elements_abs_x = [get_element_abs_position(el)[0] for el in sg.elements]
-        sg.x = min(elements_abs_x) - SECURITY_GROUP_BORDER_DISTANCE - network.vpc.x
+        sg.x = min(elements_abs_x) - SECURITY_GROUP_BORDER_DISTANCE - get_element_abs_position(network.vpc)[0]
         sg.w = max(elements_abs_x) - min(elements_abs_x) + 2*SECURITY_GROUP_BORDER_DISTANCE + ICON_SIZE
     for element in network.elements:
         element.x = (NETWORK_ELEMENTS_SPACE - ICON_SIZE)/2
@@ -398,7 +398,7 @@ def set_geometry(network, positions):
 
 def get_element_abs_position(el):
     if not el.parent:
-        return (0,0)
+        return (NETWORK_BORDER_DISTANCE,NETWORK_BORDER_DISTANCE)
     return (get_element_abs_position(el.parent)[0] + el.x, get_element_abs_position(el.parent)[1] + el.y)
 
 
@@ -451,11 +451,36 @@ def get_matrix(network):
 def break_overlaping(network):
     matrix = get_matrix(network)
 
+def add_fip_edge_point(network):
+    type_to_point = {
+        'vsi_ni_vsi_fp': (-50, +40),
+        'vsi_ni_fp': (-40, +50)
+    }
+    fip_to_n_con = {}
+    for edge in network.edges:
+        if edge.src in network.elements and 'fp' in edge.dst.type:
+            x, y = get_element_abs_position(edge.dst)
+            ncon = fip_to_n_con.get(edge.dst, 0)
+            edge.points.append((x + type_to_point[edge.dst.type][0], y + type_to_point[edge.dst.type][1] - ncon*4))
+            edge.points.append((x + type_to_point[edge.dst.type][0] + 40, y + type_to_point[edge.dst.type][1] - ncon*4))
+            ncon += 1
+            fip_to_n_con[edge.dst] = ncon
+        elif edge.dst in network.elements and 'fp' in edge.src.type:
+            ncon = fip_to_n_con.get(edge.src, 0)
+            x, y = get_element_abs_position(edge.src)
+            edge.points.insert(0, (x + type_to_point[edge.src.type][0], y + type_to_point[edge.src.type][1] - ncon*4))
+            edge.points.insert(0, (x + type_to_point[edge.src.type][0] + 40, y + type_to_point[edge.src.type][1] - ncon*4))
+            ncon += 1
+            fip_to_n_con[edge.src] = ncon
+
+
+
 def layouting(network, max_steps):
     positions = set_positions(network)
     r = minimize_positions(positions, max_steps)
     set_geometry(network, positions)
     break_overlaping(network)
+    add_fip_edge_point(network)
     return r
 
 
@@ -620,6 +645,6 @@ if __name__ == "__main__":
             print('xxxxxxxxxxxxxxxxxxx',dir,steps)
             jinja_info = get_jinja_info(network)
             outputText = template.render(elements=jinja_info)
-            with open(dir + '/' + str(steps) + '.drawio', 'w') as f:
+            with open(dir + '/' + network_name + str(steps) + '.drawio', 'w') as f:
                 f.write(outputText)
             steps += 1
