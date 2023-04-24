@@ -62,7 +62,6 @@ class SecurityGroup:
 class Element:
     name: str
     type: str
-    attached_to: str = None
     securityGroup: SecurityGroup = None
     def get_elements(self):
         return []
@@ -518,7 +517,7 @@ def read_connectivity(file):
         zone.subnets.append(subnet)
         for node in subnet_nodes:
             if node['kind'] == 'NetworkInterface':
-                el = Element(node['vsiName'], 'vsi')
+                el = Element(node['vsiName'], 'vsi_ni')
                 uid_to_el[node['uid']] = el
                 subnet.elements.append(el)
                 el_uid_to_subnet[node['uid']] = subnet
@@ -526,7 +525,22 @@ def read_connectivity(file):
                 node_address = node['address']
                 if node_address in el_addr_to_sg:
                     el_addr_to_sg[node_address].elements.append(el)
-                    el_uid_to_sg[node['uid']] = sg
+                    el_uid_to_sg[node['uid']] = el_addr_to_sg[node_address]
+    for nodeset in [node for node in architecture['NodeSets'] if node['kind'] == 'VSI']:
+        vsi_name = nodeset['name']
+        vsi_elements_uids = nodeset['nodes'].split(',')
+        if len(vsi_elements_uids) > 1:
+            el = Element(vsi_name, 'vsi')
+            el.vsi_name = vsi_name
+            el_uid_to_zone[vsi_elements_uids[0]].elements.append(el)
+            for uid in vsi_elements_uids:
+                e = Edge(el, uid_to_el[uid], 'undiredge','')
+                network.edges.append(e)
+
+        elif len(vsi_elements_uids) == 1:
+            uid_to_el[vsi_elements_uids[0]].type += '_vsi'
+        else:
+            print('VSI without nodes')
     for router in architecture['Routers']:
         attached_to = router['attached_to'].split(',')[0]
         if router['kind'] == 'PublicGateway':
@@ -588,9 +602,10 @@ if __name__ == "__main__":
 
 
     files = [
-          'examples/sg_testing1/out_sg_testing1.json',
-          'examples/acl_testing3/out_acl_testing3.json',
-          'examples/demo/out_demo2.json'
+          # 'examples/sg_testing1/out_sg_testing1.json',
+          # 'examples/acl_testing3/out_acl_testing3.json',
+          # 'examples/demo/out_demo2.json'
+            'examples/multinis/out_multiNIS.json'
     ]
     for file in files:
         network_name = os.path.basename(file)
