@@ -478,7 +478,7 @@ def set_sgs(network):
             el.securityGroup = sg
 
 def get_jinja_info(me):
-    if 'diredge' not in me.type:
+    if 'edge' not in me.type:
         me.geometry = f'x="{me.x}" y="{me.y}" width="{me.w}" height="{me.h}"'
     return [me] + list(itertools.chain(*[get_jinja_info(child) for child in me.get_elements()]))
 
@@ -534,7 +534,7 @@ def read_connectivity(file):
             el.vsi_name = vsi_name
             el_uid_to_zone[vsi_elements_uids[0]].elements.append(el)
             for uid in vsi_elements_uids:
-                e = Edge(el, uid_to_el[uid], 'undiredge','')
+                e = Edge(el, uid_to_el[uid], 'linkedge','')
                 network.edges.append(e)
 
         elif len(vsi_elements_uids) == 1:
@@ -547,10 +547,8 @@ def read_connectivity(file):
             el = Element(router['name'], 'gateway')
             el_uid_to_zone[attached_to].elements.append(el)
         elif router['kind'] == 'FloatingIP':
-            el = Element(router['cidr'], 'floating_point')
-            el_uid_to_subnet[attached_to].elements.append(el)
-            if attached_to in el_uid_to_sg:
-                el_uid_to_sg[attached_to].elements.append(el)
+            uid_to_el[attached_to].type += '_fp'
+
         else:
             print('unknown router')
             continue
@@ -602,10 +600,10 @@ if __name__ == "__main__":
 
 
     files = [
-          # 'examples/sg_testing1/out_sg_testing1.json',
-          # 'examples/acl_testing3/out_acl_testing3.json',
-          # 'examples/demo/out_demo2.json'
-            'examples/multinis/out_multiNIS.json'
+           'examples/sg_testing1/out_sg_testing1.json',
+           'examples/acl_testing3/out_acl_testing3.json',
+           'examples/demo/out_demo2.json',
+           'examples/multinis/out_multiNIS.json'
     ]
     for file in files:
         network_name = os.path.basename(file)
