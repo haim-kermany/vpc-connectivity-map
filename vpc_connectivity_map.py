@@ -63,6 +63,7 @@ class Element:
     name: str
     type: str
     securityGroup: SecurityGroup = None
+    public_gw: Element = None
     def get_elements(self):
         return []
     def __hash__(self):
@@ -421,8 +422,6 @@ def get_edges_abs_posiotions(network, matrix):
             matrix[int(y / MATRIX_GRANOLATITY)][int(x / MATRIX_GRANOLATITY)][1].add(edge)
 
 def get_matrix(network):
-    for edge in network.edges:
-        edge.points.clear()
     h = network.h/MATRIX_GRANOLATITY
     w = network.w/MATRIX_GRANOLATITY
     matrix = [[(set(),set()) for x in range(int(w))] for y in range(int(h))]
@@ -472,6 +471,13 @@ def add_fip_edge_point(network):
             edge.points.insert(0, (x + type_to_point[edge.src.type][0] + 40, y + type_to_point[edge.src.type][1] - ncon*4))
             ncon += 1
             fip_to_n_con[edge.src] = ncon
+        elif edge.dst in network.elements and edge.src.public_gw:
+            ncon = fip_to_n_con.get(edge.src.public_gw, 0)
+            x, y = get_element_abs_position(edge.src.public_gw)
+            edge.points.insert(0, (x, y + ICON_SIZE/2 - ncon*4))
+            edge.points.insert(0, (x + ICON_SIZE, y  + ICON_SIZE/2 - ncon*4))
+            ncon += 1
+            fip_to_n_con[edge.src.public_gw] = ncon
 
 
 
@@ -479,7 +485,9 @@ def layouting(network, max_steps):
     positions = set_positions(network)
     r = minimize_positions(positions, max_steps)
     set_geometry(network, positions)
-    break_overlaping(network)
+    for edge in network.edges:
+        edge.points.clear()
+    #break_overlaping(network)
     add_fip_edge_point(network)
     return r
 
@@ -567,12 +575,15 @@ def read_connectivity(file):
         else:
             print('VSI without nodes')
     for router in architecture['Routers']:
-        attached_to = router['attached_to'].split(',')[0]
+        attached_to = router['attached_to'].split(',')
+        attached_to.remove('')
         if router['kind'] == 'PublicGateway':
             el = Element(router['name'], 'gateway')
-            el_uid_to_zone[attached_to].elements.append(el)
+            el_uid_to_zone[attached_to[0]].elements.append(el)
+            for at in attached_to:
+                uid_to_el[at].public_gw = el
         elif router['kind'] == 'FloatingIP':
-            uid_to_el[attached_to].type += '_fp'
+            uid_to_el[attached_to[0]].type += '_fp'
 
         else:
             print('unknown router')
