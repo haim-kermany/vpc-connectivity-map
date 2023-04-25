@@ -87,80 +87,6 @@ class Edge:
         return f'{self.src.name}->{self.dst.name}'
 
 
-def build_graph():
-    network = Network()
-    vpc = VPC()
-    us_south = Zone('us-south-1')
-    subnet1 = Subnet('subnet1', '10.240.10.0/24', 'ACL1')
-    subnet2 = Subnet('subnet2', '10.240.20.0/24', 'ACL2')
-    subnet3 = Subnet('subnet3', '10.240.30.0/24', 'ACL3')
-    securityGroup1 = SecurityGroup('sg1')
-    securityGroup2 = SecurityGroup('sg2')
-    securityGroup3 = SecurityGroup('sg3')
-    vsi1 = Element('vsi1', 'vsi')
-    vsi2 = Element('vsi2', 'vsi')
-    vsi3a = Element('vsi3a', 'vsi')
-    vsi3b = Element('vsi3b', 'vsi')
-    public_gw = Element('public_gw', 'gateway')
-    public_gw2 = Element('public_gw2', 'gateway')
-    db_gw = Element('db_endpoint_gw', 'gateway')
-    floating_point_ip = Element('52.118.188.231', 'floating_point', 'vsi2')
-    internet1 = Element('142.0.0.0/8', 'internet')
-    internet2 = Element('143.0.0.0/8', 'internet')
-    user = Element('147.235.219.206/32', 'user')
-
-
-    network.vpc = vpc
-
-    network.elements.append(internet1)
-    network.elements.append(internet2)
-    network.elements.append(user)
-
-    vpc.zones.append(us_south)
-
-    us_south.subnets.append(subnet1)
-    us_south.subnets.append(subnet2)
-    us_south.subnets.append(subnet3)
-
-    vpc.securityGroups.append(securityGroup1)
-    vpc.securityGroups.append(securityGroup2)
-    vpc.securityGroups.append(securityGroup3)
-
-    us_south.elements.append(public_gw)
-    us_south.elements.append(public_gw2)
-
-    subnet1.elements.append(vsi1)
-
-    subnet2.elements.append(vsi2)
-    subnet2.elements.append(floating_point_ip)
-
-    subnet3.elements.append(vsi3a)
-    subnet3.elements.append(vsi3b)
-    subnet3.elements.append(db_gw)
-
-    securityGroup1.elements.append(vsi1)
-    securityGroup3.elements.append(public_gw)
-    securityGroup2.elements.append(vsi2)
-    securityGroup2.elements.append(vsi3b)
-    securityGroup2.elements.append(floating_point_ip)
-    securityGroup3.elements.append(vsi3a)
-    securityGroup3.elements.append(db_gw)
-
-    network.edges.append(Edge(vsi1, public_gw, 'diredge',''))
-    network.edges.append(Edge(vsi1, public_gw2, 'diredge',''))
-    network.edges.append(Edge(public_gw, internet1, 'diredge','ICMP'))
-    network.edges.append(Edge(public_gw, internet2, 'diredge','ICMP'))
-    network.edges.append(Edge(floating_point_ip, internet2, 'diredge','ICMP'))
-    network.edges.append(Edge(user, floating_point_ip, 'diredge','TCP 22'))
-    network.edges.append(Edge(vsi2, vsi1, 'diredge',''))
-    network.edges.append(Edge(vsi2, vsi3b, 'undiredge','TCP'))
-    network.edges.append(Edge(vsi3b, vsi1, 'diredge',''))
-    network.edges.append(Edge(vsi3b, vsi3a, 'diredge',''))
-    network.edges.append(Edge(vsi3b, db_gw, 'diredge',''))
-    network.edges.append(Edge(db_gw, vsi1, 'diredge',''))
-    network.edges.append(Edge(vsi3a, vsi1, 'diredge',''))
-
-    return network
 
 ##############################################################################################
 @dataclass
@@ -452,8 +378,8 @@ def break_overlaping(network):
 
 def add_fip_edge_point(network):
     type_to_point = {
-        'vsi_ni_vsi_fp': (-50, +40),
-        'vsi_ni_fp': (-40, +50)
+        'ni_vsi_fp': (-50, +40),
+        'ni_fp': (-40, +50)
     }
     fip_to_n_con = {}
     for edge in network.edges:
@@ -487,7 +413,7 @@ def layouting(network, max_steps):
     set_geometry(network, positions)
     for edge in network.edges:
         edge.points.clear()
-    #break_overlaping(network)
+    break_overlaping(network)
     add_fip_edge_point(network)
     return r
 
@@ -550,7 +476,7 @@ def read_connectivity(file):
         zone.subnets.append(subnet)
         for node in subnet_nodes:
             if node['kind'] == 'NetworkInterface':
-                el = Element(node['vsiName'], 'vsi_ni')
+                el = Element(node['vsiName'], 'ni')
                 uid_to_el[node['uid']] = el
                 subnet.elements.append(el)
                 el_uid_to_subnet[node['uid']] = subnet
@@ -639,7 +565,8 @@ if __name__ == "__main__":
            'examples/sg_testing1/out_sg_testing1.json',
            'examples/acl_testing3/out_acl_testing3.json',
            'examples/demo/out_demo2.json',
-           'examples/multinis/out_multiNIS.json'
+           'examples/multinis/out_multiNIS.json',
+           'examples/karen_25_4/result.json',
     ]
     for file in files:
         network_name = os.path.basename(file)
