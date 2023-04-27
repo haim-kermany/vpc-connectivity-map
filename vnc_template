@@ -61,8 +61,8 @@
             <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element.id}}" value="{{ element.name}}" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/PublicGateway.svg;" parent="FXCXVvDxTQtwc45PbP1s-{{ element.parent.id}}" vertex="1">
             <mxGeometry {{element.geometry}} as="geometry"/>
             </mxCell>
-        {% elif element.type  == "floating_point" %}
-            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element.id}}" value="{{ element.name}}" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/FloatingIP.svg;flipH=1;" parent="FXCXVvDxTQtwc45PbP1s-{{ element.parent.id}}" vertex="1">
+        {% elif element.type  == "endpoint" %}
+            <mxCell id="FXCXVvDxTQtwc45PbP1s-{{ element.id}}" value="{{ element.name}}" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/CloudServices.svg;" parent="FXCXVvDxTQtwc45PbP1s-{{ element.parent.id}}" vertex="1">
             <mxGeometry {{element.geometry}} as="geometry"/>
             </mxCell>
         {% elif element.type  == "internet" %}
